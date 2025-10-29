@@ -1,5 +1,6 @@
-import { getContext } from '../../../extensions.js';
-import { getThumbnailUrl } from '../../../../script.js';
+import { extension_settings } from '../../../extensions.js';
+import { getContext, getApiUrl, getApiKey } from '../../../../script.js';
+import { getThumbnailUrl, saveSettingsDebounced } from '../../../../script.js';
 
 const extensionName = 'character-similarity';
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
@@ -7,9 +8,24 @@ const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 let similarityWorker;
 let similarityResults = [];
 
-// Renders the results into the table based on the current sort order
+const defaultSettings = {
+    embeddingModel: 'nomic-embed-text-v1.5',
+};
+
+function loadSettings() {
+    extension_settings[extensionName] = extension_settings[extensionName] || {};
+    if (Object.keys(extension_settings[extensionName]).length === 0) {
+        Object.assign(extension_settings[extensionName], defaultSettings);
+    }
+    $('#similarity_embedding_model').val(extension_settings[extensionName].embeddingModel);
+}
+
+function onModelNameInput() {
+    extension_settings[extensionName].embeddingModel = $(this).val();
+    saveSettingsDebounced();
+}
+
 function renderResults() {
-    const context = getContext();
     const tbody = $('#similarity_results_tbody');
     tbody.empty();
 
@@ -63,7 +79,6 @@ async function calculateSimilarity() {
     similarityResults = [];
     renderResults(); // Clear table
 
-    // Unshallow characters if needed
     const { characters, unshallowCharacter } = context;
     if (characters.some(c => c.shallow) && typeof unshallowCharacter === 'function') {
         toastr.info('Unshallowing all characters before proceeding. This may take a moment.');
@@ -99,7 +114,7 @@ async function calculateSimilarity() {
                 similarityWorker.terminate();
                 break;
             case 'error':
-                toastr.error(data, 'Worker Error');
+                toastr.error(data, 'Worker Error', { timeOut: 0, extendedTimeOut: 0 });
                 progressContainer.hide();
                 calculateButton.prop('disabled', false).find('span').text('Calculate Similarity');
                 similarityWorker.terminate();
@@ -114,7 +129,6 @@ async function calculateSimilarity() {
         progressContainer.hide();
     };
 
-    // We only need specific fields, sending the whole character object is inefficient
     const characterData = characters.map(c => ({
         name: c.name,
         avatar: c.avatar,
@@ -124,24 +138,29 @@ async function calculateSimilarity() {
         first_mes: c.first_mes,
         mes_example: c.mes_example,
     }));
+    
+    const settings = {
+        apiUrl: getApiUrl(),
+        apiKey: getApiKey(),
+        model: $('#similarity_embedding_model').val(),
+    };
 
-    similarityWorker.postMessage(characterData);
+    similarityWorker.postMessage({ characters: characterData, settings });
 }
 
 jQuery(async () => {
-    // Load settings HTML
     const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
     $('#extensions_settings2').append(settingsHtml);
 
-    // Create and add the button to the character list header
     const openButton = $('<button id="char_similarity_button" class="menu_button"><i class="fa-solid fa-people-arrows"></i> Similarity</button>');
     openButton.on('click', () => {
         $('#character_similarity_settings .inline-drawer-toggle').trigger('click');
     });
     $('#rm_buttons_container').prepend(openButton);
 
-
-    // Add event listeners
     $('#similarity_calculate_button').on('click', calculateSimilarity);
     $('#similarity_sort_order').on('change', renderResults);
+    $('#similarity_embedding_model').on('input', onModelNameInput);
+
+    loadSettings();
 });

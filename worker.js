@@ -1,7 +1,3 @@
-// SillyTavern functions are not available in workers by default.
-// We must import them. The path is relative to the web root.
-importScripts('/scripts/extensions.js');
-
 // A standard function to calculate cosine similarity between two vectors
 function cosineSimilarity(vecA, vecB) {
     if (!vecA || !vecB || vecA.length !== vecB.length) {
@@ -28,41 +24,72 @@ function cosineSimilarity(vecA, vecB) {
     return dotProduct / (magnitudeA * magnitudeB);
 }
 
-// Function to call the Extras API and get an embedding for a text
-async function getEmbedding(text) {
-    try {
-        const url = new URL(self.getApiUrl());
-        url.pathname = '/api/get_embeddings';
+// Function to call an OpenAI-compatible embeddings endpoint
+async function getEmbedding(text, apiUrl, apiKey, model) {
+    if (!apiUrl) {
+        self.postMessage({ type: 'error', data: 'API URL is not configured.' });
+        return null;
+    }
 
-        const apiResult = await self.doExtrasFetch(url, {
+    const url = new URL(apiUrl);
+    // Use the base path and append the standard embeddings endpoint
+    url.pathname = (url.pathname.endsWith('/v1/') ? url.pathname.slice(0, -1) : url.pathname.replace(/\/v1$/, '')) + '/v1/embeddings';
+
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+    if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const body = {
+        input: text,
+    };
+    if (model) {
+        body.model = model;
+    }
+
+    try {
+        const response = await fetch(url.toString(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text }),
+            headers: headers,
+            body: JSON.stringify(body),
         });
 
-        if (apiResult.ok) {
-            const data = await apiResult.json();
-            return data.embedding;
+        if (!response.ok) {
+            const errorText = await response.text();
+            const friendlyError = `API Error (${response.status}): ${errorText.substring(0, 200)}`;
+            console.error('API Error:', response.status, errorText);
+            self.postMessage({ type: 'error', data: friendlyError });
+            return null;
+        }
+
+        const data = await response.json();
+        if (data.data && data.data[0] && data.data[0].embedding) {
+            return data.data[0].embedding;
         } else {
-            console.error('Extras API call failed:', apiResult.statusText);
-            const errorText = await apiResult.text();
-            console.error('Error details:', errorText);
+            console.error('Unexpected API response structure:', data);
+            self.postMessage({ type: 'error', data: 'Embedding not found in API response. Check worker console for details.' });
             return null;
         }
     } catch (error) {
-        console.error('Error fetching embedding:', error);
+        console.error('Fetch failed:', error);
+        self.postMessage({ type: 'error', data: `Network request failed: ${error.message}. Is the API server running and accessible?` });
         return null;
     }
 }
 
 
 self.onmessage = async (event) => {
-    const characters = event.data;
+    const { characters, settings } = event.data;
+    const { apiUrl, apiKey, model } = settings;
     const numCharacters = characters.length;
     const characterEmbeddings = [];
+    let hasError = false;
 
     // Step 1: Generate embeddings for all characters
     for (let i = 0; i < numCharacters; i++) {
+        if (hasError) break; // Stop processing if an error occurred
         const char = characters[i];
         const combinedText = [
             char.name,
@@ -76,7 +103,7 @@ self.onmessage = async (event) => {
         self.postMessage({
             type: 'progress',
             data: {
-                message: `Generating embedding for: ${char.name} (${i + 1}/${numCharacters})`,
+                message: `Getting embedding for: ${char.name} (${i + 1}/${numCharacters})`,
                 progress: (i / (numCharacters * 2)) * 100, // Embedding is ~half the work
             },
         });
@@ -86,13 +113,17 @@ self.onmessage = async (event) => {
             continue;
         }
 
-        const embedding = await getEmbedding(combinedText);
+        const embedding = await getEmbedding(combinedText, apiUrl, apiKey, model);
         if (embedding) {
             characterEmbeddings.push({ name: char.name, avatar: char.avatar, embedding });
         } else {
             console.warn(`Failed to get embedding for character ${char.name}.`);
+            // The getEmbedding function will post a specific error, so we just set a flag to stop.
+            hasError = true;
         }
     }
+
+    if (hasError) return; // Exit worker if embedding failed
 
     // Step 2: Calculate pairwise similarity
     const results = [];
@@ -112,18 +143,17 @@ self.onmessage = async (event) => {
             });
 
             processedPairs++;
-            if (processedPairs % 1000 === 0) { // Update progress periodically
+            if (processedPairs % 1000 === 0 || processedPairs === totalPairs) {
                 self.postMessage({
                     type: 'progress',
                     data: {
                         message: `Calculating similarities... (${processedPairs}/${totalPairs})`,
-                        progress: 50 + (processedPairs / totalPairs) * 50, // Similarity calc is the other half
+                        progress: 50 + (processedPairs / totalPairs) * 50,
                     },
                 });
             }
         }
     }
 
-    // Step 3: Send final results back to the main thread
     self.postMessage({ type: 'result', data: results });
 };
