@@ -1,34 +1,33 @@
-import { extension_settings } from "../../../extensions.js";
+import { extension_settings, getContext } from "../../../extensions.js";
 import { saveSettingsDebounced } from "../../../../script.js";
 
-// Keep track of where your extension is located, name should match repo name
 const extensionName = "character_similarity";
 
-// Default settings for the extension
 const defaultSettings = {
     embeddingUrl: 'http://127.0.0.1:5001/api/v1/embedding',
 };
 
-// Function to load and initialize settings
+/**
+ * Loads the extension settings, initializing them with defaults if they don't exist.
+ * This function only deals with the settings object, not the UI.
+ */
 function loadSettings() {
-    // Ensure the settings object exists
+    // Ensure the settings object for this extension exists.
     extension_settings[extensionName] = extension_settings[extensionName] || {};
 
-    // Check for missing settings and apply defaults
-    if (Object.keys(extension_settings[extensionName]).length === 0) {
-        Object.assign(extension_settings[extensionName], defaultSettings);
-    }
+    // Apply default settings for any keys that are missing.
     for (const key of Object.keys(defaultSettings)) {
         if (extension_settings[extensionName][key] === undefined) {
             extension_settings[extensionName][key] = defaultSettings[key];
         }
     }
-
-    // Update the UI with the loaded settings
-    $("#embedding_url_input").val(extension_settings[extensionName].embeddingUrl);
 }
 
-// This function is called when the Embedding URL input is changed
+/**
+ * Handles the input event for the Embedding URL field.
+ * Updates the settings object and saves it.
+ * @param {Event} event
+ */
 function onUrlInput(event) {
     const value = $(event.target).val();
     extension_settings[extensionName].embeddingUrl = value;
@@ -36,9 +35,15 @@ function onUrlInput(event) {
 }
 
 
-// This function is called when the extension is loaded
+/**
+ * Main entry point for the extension.
+ * This is executed when the DOM is ready.
+ */
 jQuery(() => {
-    // Define the HTML for the settings panel
+    // 1. Load settings into the extension_settings object.
+    loadSettings();
+
+    // 2. Define the HTML for the settings panel, embedding the current settings value directly.
     const settingsHtml = `
     <div class="character-similarity-settings">
         <div class="inline-drawer">
@@ -49,7 +54,13 @@ jQuery(() => {
             <div class="inline-drawer-content">
                 <div class="character-similarity_block">
                     <label for="embedding_url_input">Embedding URL</label>
-                    <input id="embedding_url_input" class="text_pole" type="text" placeholder="http://127.0.0.1:5001/api/v1/embedding">
+                    <input
+                        id="embedding_url_input"
+                        class="text_pole"
+                        type="text"
+                        value="${extension_settings[extensionName].embeddingUrl}"
+                        placeholder="http://127.0.0.1:5001/api/v1/embedding"
+                    >
                     <small>The URL for your KoboldCpp embedding API endpoint.</small>
                 </div>
                 <hr class="sysHR" />
@@ -57,13 +68,9 @@ jQuery(() => {
         </div>
     </div>`;
 
-    // Append the settings HTML to the extension settings section in SillyTavern
-    // We use extensions_settings2 for the right column
+    // 3. Append the settings HTML to the SillyTavern UI.
     $("#extensions_settings2").append(settingsHtml);
 
-    // Add an event listener for the input field
+    // 4. Attach the event listener to the newly created input field.
     $("#embedding_url_input").on("input", onUrlInput);
-
-    // Load the initial settings
-    loadSettings();
 });
