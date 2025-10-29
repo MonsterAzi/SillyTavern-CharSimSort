@@ -7,7 +7,8 @@ const extensionName = "character_similarity";
 
 // Default settings that will be applied on first load.
 const defaultSettings = {
-    embeddingUrl: 'http://127.0.0.1:5001/api/v1/embedding',
+    // We now only store the base URL.
+    koboldUrl: 'http://127.0.0.1:5001',
 };
 
 /**
@@ -33,15 +34,15 @@ jQuery(() => {
             </div>
             <div class="inline-drawer-content">
                 <div class="character-similarity_block">
-                    <label for="embedding_url_input">Embedding URL</label>
+                    <label for="kobold_url_input">KoboldCpp URL</label>
                     <input
-                        id="embedding_url_input"
+                        id="kobold_url_input"
                         class="text_pole"
                         type="text"
-                        value="${extension_settings[extensionName].embeddingUrl}"
-                        placeholder="http://127.0.0.1:5001/api/v1/embedding"
+                        value="${extension_settings[extensionName].koboldUrl}"
+                        placeholder="http://127.0.0.1:5001"
                     >
-                    <small>The URL for your KoboldCpp embedding API endpoint.</small>
+                    <small>The base URL for your KoboldCpp instance.</small>
                 </div>
             </div>
         </div>
@@ -55,9 +56,10 @@ jQuery(() => {
 
     // 4. ATTACH EVENT LISTENERS
     // Now that the HTML is in the DOM, we can safely attach event listeners.
-    $("#embedding_url_input").on("input", (event) => {
+    $("#kobold_url_input").on("input", (event) => {
         const value = $(event.target).val();
-        extension_settings[extensionName].embeddingUrl = value;
+        // Save the updated base URL to settings.
+        extension_settings[extensionName].koboldUrl = value;
         saveSettingsDebounced();
     });
 });
