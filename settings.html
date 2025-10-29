@@ -5,53 +5,9 @@
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
-            <p>Calculate similarity between all characters using text embeddings. This leverages your currently selected main API.</p>
-            <div class="danger-color" style="font-size: 0.9em; padding: 5px; border: 1px solid var(--danger-color); border-radius: 5px;">
-                <b>Note:</b> This extension requires your selected API (in top panel) to provide an OpenAI-compatible <code>/v1/embeddings</code> endpoint.
-            </div>
-
-            <div class="flex-container flex-column">
-                <label for="similarity_embedding_model">Embedding Model Name:</label>
-                <input id="similarity_embedding_model" class="text_pole" type="text" placeholder="e.g., text-embedding-ada-002, nomic-embed-text-v1.5">
-                <small>Required for most OpenAI-compatible APIs. Can be left blank if your server doesn't need a model name for embeddings.</small>
-            </div>
-
-            <button id="similarity_calculate_button" class="menu_button">
-                <i class="fa-solid fa-calculator"></i>
-                <span>Calculate Similarity</span>
-            </button>
-
-            <div id="similarity_progress_container" style="display:none;">
-                <p id="similarity_progress_text" class="text-center"></p>
-                <progress id="similarity_progress_bar" class="wide100p" max="100" value="0"></progress>
-            </div>
-
-            <div id="similarity_results_area" style="display:none;">
-                <hr>
-                <div class="flex-container space-between align-items-center">
-                    <h4>Results</h4>
-                    <div>
-                        <label for="similarity_sort_order">Sort by:</label>
-                        <select id="similarity_sort_order" class="text_pole">
-                            <option value="desc">Most Similar First</option>
-                            <option value="asc">Least Similar First</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="similarity-results-table-wrapper">
-                    <table class="similarity-results-table">
-                        <thead>
-                            <tr>
-                                <th class="char-col">Character 1</th>
-                                <th class="char-col">Character 2</th>
-                                <th class="sim-col">Similarity</th>
-                            </tr>
-                        </thead>
-                        <tbody id="similarity_results_tbody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <p>Settings for the character similarity finder extension.</p>
+            <label for="char_sim_embedding_url">Embedding URL</label>
+            <input id="char_sim_embedding_url" class="text_pole" type="text" placeholder="http://127.0.0.1:5001/api/v1/embeddings" title="The full URL to the embeddings endpoint of your backend (e.g., KoboldCpp).">
         </div>
     </div>
 </div>
