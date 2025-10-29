@@ -1,49 +1,29 @@
-import { extension_settings, getContext } from "../../../extensions.js";
+// Import necessary functions from SillyTavern's core scripts.
+import { extension_settings } from "../../../extensions.js";
 import { saveSettingsDebounced } from "../../../../script.js";
 
+// A unique name for the extension to store its settings.
 const extensionName = "character_similarity";
 
+// Default settings that will be applied on first load.
 const defaultSettings = {
     embeddingUrl: 'http://127.0.0.1:5001/api/v1/embedding',
 };
 
 /**
- * Loads the extension settings, initializing them with defaults if they don't exist.
- * This function only deals with the settings object, not the UI.
- */
-function loadSettings() {
-    // Ensure the settings object for this extension exists.
-    extension_settings[extensionName] = extension_settings[extensionName] || {};
-
-    // Apply default settings for any keys that are missing.
-    for (const key of Object.keys(defaultSettings)) {
-        if (extension_settings[extensionName][key] === undefined) {
-            extension_settings[extensionName][key] = defaultSettings[key];
-        }
-    }
-}
-
-/**
- * Handles the input event for the Embedding URL field.
- * Updates the settings object and saves it.
- * @param {Event} event
- */
-function onUrlInput(event) {
-    const value = $(event.target).val();
-    extension_settings[extensionName].embeddingUrl = value;
-    saveSettingsDebounced();
-}
-
-
-/**
- * Main entry point for the extension.
- * This is executed when the DOM is ready.
+ * Main function that runs when the script is loaded.
  */
 jQuery(() => {
-    // 1. Load settings into the extension_settings object.
-    loadSettings();
+    // 1. INITIALIZE SETTINGS
+    // Ensure the settings object for this extension exists.
+    extension_settings[extensionName] = extension_settings[extensionName] || {};
+    // Merge defaults into the settings object to ensure all keys are present.
+    Object.assign(defaultSettings, extension_settings[extensionName]);
+    Object.assign(extension_settings[extensionName], defaultSettings);
 
-    // 2. Define the HTML for the settings panel, embedding the current settings value directly.
+
+    // 2. CREATE THE SETTINGS UI HTML
+    // Create the HTML string with current settings values embedded directly.
     const settingsHtml = `
     <div class="character-similarity-settings">
         <div class="inline-drawer">
@@ -63,14 +43,21 @@ jQuery(() => {
                     >
                     <small>The URL for your KoboldCpp embedding API endpoint.</small>
                 </div>
-                <hr class="sysHR" />
             </div>
         </div>
     </div>`;
 
-    // 3. Append the settings HTML to the SillyTavern UI.
+
+    // 3. INJECT THE HTML INTO THE DOM
+    // Append the created HTML to the settings panel in the right column.
     $("#extensions_settings2").append(settingsHtml);
 
-    // 4. Attach the event listener to the newly created input field.
-    $("#embedding_url_input").on("input", onUrlInput);
+
+    // 4. ATTACH EVENT LISTENERS
+    // Now that the HTML is in the DOM, we can safely attach event listeners.
+    $("#embedding_url_input").on("input", (event) => {
+        const value = $(event.target).val();
+        extension_settings[extensionName].embeddingUrl = value;
+        saveSettingsDebounced();
+    });
 });

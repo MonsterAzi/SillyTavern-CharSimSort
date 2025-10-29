@@ -1,31 +1,15 @@
 # SillyTavern Character Similarity
 
-This extension finds similar characters in your library using text embeddings.
+This extension finds similar characters in your library using text embeddings from a KoboldCpp API.
 
-## Features
-
-*   Calculates similarity between all characters.
-*   Uses KoboldCpp's embedding API.
-*   Displays a sortable list of similar character groups.
-
-## Installation and Usage
-
-### Installation
+## Installation
 
 Install using SillyTavern's built-in extension installer.
 
-### Usage
+## Usage
 
-1.  Navigate to the Extensions tab (the plug icon) in the right-side panel.
+1.  Navigate to the Extensions settings tab (the plug icon) in the right-side panel.
 2.  Open the "Character Similarity" settings panel.
-3.  Ensure the "Embedding URL" points to your running KoboldCpp instance's embedding endpoint.
-4.  More features will be added in the future.
+3.  Ensure the "Embedding URL" points to your running KoboldCpp instance's embedding endpoint (e.g., `http://127.0.0.1:5001/api/v1/embedding`).
 
-## Prerequisites
-
-*   SillyTavern >= 1.11.7
-*   A running instance of KoboldCpp with embedding models loaded.
-
-## License
-
-AGPLv3
+Future updates will add the main functionality.
