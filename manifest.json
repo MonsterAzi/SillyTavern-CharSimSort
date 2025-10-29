@@ -1,7 +1,9 @@
 {
-    "display_name": "Character Similarity Finder",
-    "loading_order": 100,
-    "requires": ["summarize"],
+    "display_name": "Character Similarity",
+    "loading_order": 80,
+    "requires": [
+        "embeddings"
+    ],
     "optional": [],
     "js": "index.js",
     "css": "style.css",

@@ -1,0 +1,47 @@
+<div id="character_similarity_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Character Similarity</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <p>Calculate the similarity between all characters using text embeddings. This requires the 'embeddings' module to be enabled in your connected Extras server.</p>
+            <button id="similarity_calculate_button" class="menu_button">
+                <i class="fa-solid fa-calculator"></i>
+                Calculate Similarity
+            </button>
+
+            <div id="similarity_progress_container" style="display:none;">
+                <p id="similarity_progress_text" class="text-center"></p>
+                <progress id="similarity_progress_bar" class="wide100p" max="100" value="0"></progress>
+            </div>
+
+            <div id="similarity_results_area" style="display:none;">
+                <hr>
+                <div class="flex-container space-between align-items-center">
+                    <h4>Results</h4>
+                    <div>
+                        <label for="similarity_sort_order">Sort by:</label>
+                        <select id="similarity_sort_order" class="text_pole">
+                            <option value="desc">Most Similar First</option>
+                            <option value="asc">Least Similar First</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="similarity-results-table-wrapper">
+                    <table class="similarity-results-table">
+                        <thead>
+                            <tr>
+                                <th class="char-col">Character 1</th>
+                                <th class="char-col">Character 2</th>
+                                <th class="sim-col">Similarity</th>
+                            </tr>
+                        </thead>
+                        <tbody id="similarity_results_tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

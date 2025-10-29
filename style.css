@@ -1,50 +1,56 @@
-/* Button in Character Manager */
-#character-similarity-btn {
-    margin-left: 10px;
+#char_similarity_button {
+    font-size: 0.9em;
+    padding: 5px 8px;
 }
 
-/* Modal styles */
-#similarity_modal {
-    display: none; /* Hidden by default */
+#character_similarity_settings .inline-drawer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-#similarity_progress_container {
-    margin-top: 15px;
-    text-align: center;
+.similarity-results-table-wrapper {
+    max-height: 50vh;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
 }
-#similarity_progress_bar {
+
+.similarity-results-table {
     width: 100%;
-}
-#similarity_progress_container.hidden {
-    display: none;
-}
-
-/* Table styles */
-#similarity_results_table {
-    width: 100%;
-    margin-top: 15px;
     border-collapse: collapse;
 }
 
-#similarity_results_table th,
-#similarity_results_table td {
-    border: 1px solid var(--border-color);
+.similarity-results-table th,
+.similarity-results-table td {
     padding: 8px;
     text-align: left;
+    border-bottom: 1px solid var(--border-color);
 }
 
-#similarity_results_table thead {
-    background-color: var(--background-color-h);
+.similarity-results-table th {
+    background-color: var(--secondary-bg-color);
+    position: sticky;
+    top: 0;
 }
 
-#similarity_results_table th {
-    cursor: pointer;
-    user-select: none;
+.similarity-results-table .char-col {
+    width: 45%;
+}
+.similarity-results-table .sim-col {
+    width: 10%;
+    text-align: center;
 }
 
-#similarity_results_table th .fa-sort,
-#similarity_results_table th .fa-sort-up,
-#similarity_results_table th .fa-sort-down {
-    margin-left: 5px;
-    color: var(--text-color-secondary);
+.similarity-char-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.similarity-char-cell img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
 }
