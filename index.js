@@ -1,8 +1,10 @@
-import { extension_settings, renderExtensionTemplateAsync } from '../../extensions.js';
+import { extension_settings } from '../../extensions.js';
 import { saveSettingsDebounced } from '../../../script.js';
 
 // Should match the folder name of the extension
-const MODULE_NAME = 'character-similarity';
+const extensionName = 'character-similarity';
+// Path to the extension's folder. This is important for $.get to find the files.
+const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
 // Default settings for the extension
 const defaultSettings = {
@@ -14,19 +16,20 @@ const defaultSettings = {
  */
 function loadSettings() {
     // Ensure the settings object exists
-    if (Object.keys(extension_settings[MODULE_NAME] || {}).length === 0) {
-        extension_settings[MODULE_NAME] = { ...defaultSettings };
+    extension_settings[extensionName] = extension_settings[extensionName] || {};
+    if (Object.keys(extension_settings[extensionName]).length === 0) {
+        Object.assign(extension_settings[extensionName], defaultSettings);
     }
 
     // Merge defaults to handle new settings in future updates
     for (const key of Object.keys(defaultSettings)) {
-        if (extension_settings[MODULE_NAME][key] === undefined) {
-            extension_settings[MODULE_NAME][key] = defaultSettings[key];
+        if (extension_settings[extensionName][key] === undefined) {
+            extension_settings[extensionName][key] = defaultSettings[key];
         }
     }
 
     // Update the UI with the loaded settings
-    $('#char_sim_embedding_url').val(extension_settings[MODULE_NAME].embeddingUrl);
+    $('#char_sim_embedding_url').val(extension_settings[extensionName].embeddingUrl);
 }
 
 /**
@@ -35,7 +38,7 @@ function loadSettings() {
  */
 function onEmbeddingUrlInput(event) {
     const value = $(event.target).val();
-    extension_settings[MODULE_NAME].embeddingUrl = value;
+    extension_settings[extensionName].embeddingUrl = value;
     saveSettingsDebounced();
 }
 
@@ -43,15 +46,15 @@ function onEmbeddingUrlInput(event) {
  * This function is executed when the extension is loaded.
  */
 jQuery(async function () {
-    // Load and inject the HTML for the settings panel
-    const settingsHtml = await renderExtensionTemplateAsync(MODULE_NAME, 'settings');
+    // Load the HTML file for the settings panel.
+    const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
 
-    // Append the rendered HTML to the right-side settings panel
+    // Append the loaded HTML to the right-side settings panel.
     $('#extensions_settings2').append(settingsHtml);
 
-    // Set up event listeners for the UI elements
+    // Set up event listeners for the UI elements.
     $('#char_sim_embedding_url').on('input', onEmbeddingUrlInput);
 
-    // Load the initial settings
+    // Load the initial settings.
     loadSettings();
 });
