@@ -1,1 +1,6 @@
-/* All style elements for your extension go here */
+.character-similarity_block {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
