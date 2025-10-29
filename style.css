@@ -1,6 +1,1 @@
 /* All style elements for your extension go here */
-.character-similarity-container .inline-drawer-content {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
