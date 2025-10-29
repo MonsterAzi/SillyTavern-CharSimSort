@@ -1,0 +1,50 @@
+/* Button in Character Manager */
+#character-similarity-btn {
+    margin-left: 10px;
+}
+
+/* Modal styles */
+#similarity_modal {
+    display: none; /* Hidden by default */
+}
+
+#similarity_progress_container {
+    margin-top: 15px;
+    text-align: center;
+}
+#similarity_progress_bar {
+    width: 100%;
+}
+#similarity_progress_container.hidden {
+    display: none;
+}
+
+/* Table styles */
+#similarity_results_table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+}
+
+#similarity_results_table th,
+#similarity_results_table td {
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    text-align: left;
+}
+
+#similarity_results_table thead {
+    background-color: var(--background-color-h);
+}
+
+#similarity_results_table th {
+    cursor: pointer;
+    user-select: none;
+}
+
+#similarity_results_table th .fa-sort,
+#similarity_results_table th .fa-sort-up,
+#similarity_results_table th .fa-sort-down {
+    margin-left: 5px;
+    color: var(--text-color-secondary);
+}
