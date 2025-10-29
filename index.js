@@ -1,4 +1,4 @@
-import { getContext, extension_settings, renderExtensionTemplateAsync } from '../../extensions.js';
+import { extension_settings, renderExtensionTemplateAsync } from '../../extensions.js';
 import { saveSettingsDebounced } from '../../../script.js';
 
 // Should match the folder name of the extension
@@ -43,16 +43,11 @@ function onEmbeddingUrlInput(event) {
  * This function is executed when the extension is loaded.
  */
 jQuery(async function () {
-    // Create a container for our settings panel in the UI
-    const settingsContainer = `
-        <div id="character-similarity-container" class="character-similarity-container"></div>
-    `;
-    // The right-side settings panel
-    $('#extensions_settings2').append(settingsContainer);
-
     // Load and inject the HTML for the settings panel
     const settingsHtml = await renderExtensionTemplateAsync(MODULE_NAME, 'settings');
-    $('#character-similarity-container').append(settingsHtml);
+
+    // Append the rendered HTML to the right-side settings panel
+    $('#extensions_settings2').append(settingsHtml);
 
     // Set up event listeners for the UI elements
     $('#char_sim_embedding_url').on('input', onEmbeddingUrlInput);
