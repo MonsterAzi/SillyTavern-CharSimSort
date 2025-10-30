@@ -53,10 +53,11 @@ jQuery(() => {
 
     // --- MAIN SIMILARITY PANEL ---
     // 1. CREATE THE PANEL HTML WITH PLACEHOLDERS FOR CONTENT
+    // FIXED: Removed conflicting classes from the header div.
     const panelHtml = `
     <div id="characterSimilarityPanel" class="draggable">
-        <div class="charSimPanel-header panelControlBar flex-container">
-            <div class="fa-solid fa-grip drag-grabber" style="cursor: grab;"></div>
+        <div class="charSimPanel-header">
+            <div class="fa-solid fa-grip drag-grabber"></div>
             <b>Character Similarity</b>
             <div id="charSimCloseBtn" class="fa-solid fa-circle-xmark floating_panel_close"></div>
         </div>
@@ -78,18 +79,13 @@ jQuery(() => {
     $('#movingDivs').append(panelHtml);
 
     // 3. POPULATE THE CHARACTER LIST
-    // Sort characters alphabetically by name for the initial view
     const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
-
-    // Generate the HTML for each character item
     const characterListHtml = sortedCharacters.map(char => `
         <div class="charSim-character-item">
             <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
             <span>${char.name}</span>
         </div>
     `).join('');
-
-    // Insert the generated list into its container
     $('#charSimCharacterList').html(characterListHtml);
 
 
@@ -97,17 +93,14 @@ jQuery(() => {
     $('#charSimCloseBtn').on('click', () => {
         $('#characterSimilarityPanel').removeClass('open');
     });
-
     $('#charSimLoadBtn').on('click', () => {
         toastr.info('This will eventually load embeddings for all characters.', 'WIP');
         console.log('Load Embeddings clicked');
     });
-
     $('#charSimCalcBtn').on('click', () => {
         toastr.info('This will eventually calculate and display similarities.', 'WIP');
         console.log('Calculate Similarities clicked');
     });
-
     $('#charSimSortBtn').on('click', function() {
         $(this).toggleClass('fa-arrow-down fa-arrow-up');
         if ($(this).hasClass('fa-arrow-down')) {
@@ -119,18 +112,15 @@ jQuery(() => {
         }
     });
 
-
     // --- CHARACTER PANEL BUTTON ---
     const openButton = document.createElement('div');
     openButton.id = 'characterSimilarityOpenBtn';
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
     openButton.dataset.i18n = '[title]Find Similar Characters';
     openButton.title = 'Find Similar Characters';
-
     openButton.addEventListener('click', () => {
         $('#characterSimilarityPanel').addClass('open');
     });
-
     const buttonContainer = document.getElementById('rm_buttons_container');
     if (buttonContainer) {
         buttonContainer.append(openButton);
