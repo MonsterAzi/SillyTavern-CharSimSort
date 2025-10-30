@@ -46,7 +46,3 @@ Install using SillyTavern's built-in extension installer.
 
 *   SillyTavern >= 1.11.7
 *   A running instance of KoboldCpp with embedding models loaded.
-
-## License
-
-AGPLv3
