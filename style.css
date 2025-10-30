@@ -36,10 +36,10 @@
 .charSim-character-item:last-child { border-bottom: none; }
 .charSim-character-item img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .charSim-character-item .charSim-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* UNIQUENESS SCORE */
 .charSim-character-item .charSim-score { margin-left: auto; padding-left: 10px; font-size: 0.9em; font-style: italic; color: var(--text-color-secondary); }
 
 /* CLUSTER GROUPS */
-.charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 15px; padding: 5px; }
-.charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
+.charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; overflow: hidden; }
+.charSim-cluster-header { padding: 8px 10px; background-color: var(--background-color-sub); font-weight: bold; color: var(--text-color-secondary); }
+.charSim-cluster-score { font-weight: normal; font-style: italic; }
+.charSim-cluster-delimiter { margin: 15px 5px; border-color: var(--border-color-sub); }
