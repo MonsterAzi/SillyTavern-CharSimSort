@@ -1,24 +1,22 @@
 /* SETTINGS (UNCHANGED) */
 .character-similarity_block { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
 
-/* MAIN PANEL -- FIXED for MOBILE */
+/* MAIN PANEL -- FIXED for MOBILE and VISIBILITY */
 #characterSimilarityPanel {
     display: none; /* Hidden by default */
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent backdrop */
+    background-color: rgba(0, 0, 0, 0.4);
     z-index: 1000;
-    /* Flexbox properties to center the content */
     justify-content: center;
     align-items: center;
     padding: 10px;
 }
 
 #characterSimilarityPanel.open {
-    display: flex;
+    display: flex; /* Only visible when this class is present */
 }
 
-/* NEW: This is the actual visible panel content */
 .charSimPanel-content {
     width: 80%;
     max-width: 900px;
@@ -29,10 +27,9 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-    overflow: hidden; /* Important for border-radius on children */
+    overflow: hidden;
 }
 
-/* Media query for smaller screens */
 @media (max-width: 768px) {
     .charSimPanel-content {
         width: 95vw;
@@ -40,14 +37,12 @@
     }
 }
 
-
 .charSimPanel-header { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); background-color: var(--header-color); }
 .charSimPanel-header .drag-grabber { cursor: grab; }
 .charSimPanel-header > b { flex-grow: 1; text-align: center; font-size: 1.1em; }
 .charSimPanel-header .drag-grabber, .charSimPanel-header .floating_panel_close { flex-shrink: 0; }
 .charSimPanel-body { display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; }
 
-/* TABS */
 .charSim-tabs { display: flex; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
 .charSim-tab-button { padding: 10px 15px; cursor: pointer; border-right: 1px solid var(--border-color); }
 .charSim-tab-button:hover { background-color: var(--background-color-hover); }
@@ -55,29 +50,23 @@
 .charSim-tab-pane { display: none; flex-direction: column; flex-grow: 1; overflow: hidden; }
 .charSim-tab-pane.active { display: flex; }
 
-/* CONTROLS */
 .charSimPanel-controls { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
 .charSimPanel-controls .spacer { flex-grow: 1; }
 #charSimSortBtn { font-size: 1.2em; }
 #charSimThresholdSlider { flex-grow: 1; max-width: 200px; }
 
-/* LIST CONTAINER */
 .charSim-list-container { flex-grow: 1; overflow-y: auto; padding: 5px; }
 .charSim-no-results { padding: 20px; text-align: center; color: var(--text-color-secondary); }
 
-/* CHARACTER ITEM (SHARED) */
 .charSim-character-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--border-color-sub); cursor: pointer; transition: background-color 0.2s ease; }
 .charSim-character-item:hover { background-color: var(--background-color-hover); }
 .charSim-character-item:last-child { border-bottom: none; }
 .charSim-character-item img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .charSim-character-item .charSim-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* SCORE (SHARED) */
 .charSim-character-item .charSim-score { margin-left: auto; padding-left: 10px; font-size: 0.9em; font-style: italic; color: var(--text-color-secondary); }
 
-/* CLUSTER GROUPS */
 .charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; padding: 5px; }
-.charSim-cluster-group:not(:last-child) { margin-bottom: 15px; }
 .charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
 .charSim-cluster-header { padding: 8px 10px; font-weight: bold; color: var(--text-color-secondary); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
 .charSim-cluster-header .charSim-score { font-style: normal; font-weight: normal; color: var(--text-color); }

@@ -1,6 +1,6 @@
 // Import necessary functions from Silly-Tavern's core scripts.
 import { extension_settings } from "../../../extensions.js";
-import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
+import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_types, getRequestHeaders } from "../../../../script.js";
 
 const extensionName = "character_similarity";
 
@@ -84,33 +84,66 @@ function renderClusterList() {
 async function onEmbeddingsLoad() {
     const koboldUrl = extension_settings[extensionName].koboldUrl;
     if (!koboldUrl) {
-        toastr.warning('Please set the KoboldCpp URL in the extension settings first.');
+        toastr.warning('Please set the KoboldCpp URL in the extension settings. Use a network IP, not localhost, for multi-device access.');
         return;
     }
-    const apiUrl = `${koboldUrl.replace(/\/$/, "")}/api/extra/embeddings`;
+
     const buttons = $('#charSimLoadBtn, #charSimCalcUniquenessBtn, #charSimCalcClustersBtn');
     let toastId = null;
+
     try {
         buttons.prop('disabled', true);
         characterEmbeddings.clear();
         uniquenessResults = [];
         clusterResults = [];
-        toastId = toastr.info(`Loading embeddings for ${characters.length} characters...`, 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0 });
+        toastId = toastr.info(`Preparing ${characters.length} characters for embedding...`, 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0 });
+
+        const textsToEmbed = [];
         for (const char of characters) {
-            const textToEmbed = fieldsToEmbed.map(field => char[field] || '').join('\n').trim();
-            if (!textToEmbed) continue;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: "kcpp", input: textToEmbed, truncate: true }) });
-            if (!response.ok) throw new Error(`API request failed for ${char.name}: ${response.status}`);
-            const data = await response.json();
-            const embedding = data?.data?.[0]?.embedding;
-            if (!embedding) throw new Error(`Invalid embedding format for ${char.name}.`);
-            characterEmbeddings.set(char.avatar, embedding);
+            const combinedText = fieldsToEmbed.map(field => char[field] || '').join('\n').trim();
+            if (combinedText) {
+                textsToEmbed.push({ avatar: char.avatar, text: combinedText });
+            }
         }
+
+        toastr.info(`Sending ${textsToEmbed.length} characters to the API... This may take a while.`, 'Loading Embeddings', { toastId: toastId, timeOut: 0, extendedTimeOut: 0 });
+
+        // CORRECTED: Use the SillyTavern server as a proxy to call the KoboldCpp API
+        const response = await fetch('/api/backends/kobold/embed', {
+            method: 'POST',
+            headers: getRequestHeaders(), // Use SillyTavern's authenticated headers
+            body: JSON.stringify({
+                items: textsToEmbed.map(item => item.text), // Send only the text array
+                server: koboldUrl, // Tell the server where to send the request
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`The SillyTavern server failed to get embeddings. Status: ${response.status}. Check the server console for details.`);
+        }
+
+        const data = await response.json();
+        if (!data.embeddings || data.embeddings.length !== textsToEmbed.length) {
+            throw new Error('Received an invalid or incomplete response from the server proxy.');
+        }
+
+        for (let i = 0; i < data.embeddings.length; i++) {
+            const avatar = textsToEmbed[i].avatar;
+            const embedding = data.embeddings[i];
+            if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
+                console.warn(`Received empty embedding for character ${avatar}. Skipping.`);
+                continue;
+            }
+            characterEmbeddings.set(avatar, embedding);
+        }
+
         toastr.remove(toastId);
         toastr.success(`Successfully loaded embeddings for ${characterEmbeddings.size} characters.`);
+
     } catch (error) {
         if (toastId) toastr.remove(toastId);
         toastr.error(`Error loading embeddings: ${error.message}`, 'Error');
+        console.error("Embedding error details:", error);
     } finally {
         buttons.prop('disabled', false);
     }
@@ -192,7 +225,28 @@ jQuery(() => {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
-    const settingsHtml = `<div class="character-similarity-settings"><div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Character Similarity</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><div class="character-similarity_block"><label for="kobold_url_input">KoboldCpp URL</label><input id="kobold_url_input" class="text_pole" type="text" value="${extension_settings[extensionName].koboldUrl}" placeholder="http://127.0.0.1:5001"><small>The base URL for your KoboldCpp instance.</small></div></div></div></div>`;
+    const settingsHtml = `
+    <div class="character-similarity-settings">
+        <div class="inline-drawer">
+            <div class="inline-drawer-toggle inline-drawer-header">
+                <b>Character Similarity</b>
+                <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+            </div>
+            <div class="inline-drawer-content">
+                <div class="character-similarity_block">
+                    <label for="kobold_url_input">KoboldCpp URL</label>
+                    <input
+                        id="kobold_url_input"
+                        class="text_pole"
+                        type="text"
+                        value="${extension_settings[extensionName].koboldUrl}"
+                        placeholder="http://192.168.1.100:5001"
+                    >
+                    <small><b>Required for multi-device access.</b> Use your local network IP, not localhost.</small>
+                </div>
+            </div>
+        </div>
+    </div>`;
     $("#extensions_settings2").append(settingsHtml);
     $("#kobold_url_input").on("input", (event) => { extension_settings[extensionName].koboldUrl = event.target.value; saveSettingsDebounced(); });
 
