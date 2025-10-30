@@ -1,6 +1,6 @@
 // Import necessary functions from SillyTavern's core scripts.
 import { extension_settings } from "../../../extensions.js";
-import { saveSettingsDebounced } from "../../../../script.js";
+import { characters, getThumbnailUrl, saveSettingsDebounced } from "../../../../script.js";
 
 // A unique name for the extension to store its settings.
 const extensionName = "character_similarity";
@@ -52,7 +52,7 @@ jQuery(() => {
     });
 
     // --- MAIN SIMILARITY PANEL ---
-    // 1. CREATE THE PANEL HTML
+    // 1. CREATE THE PANEL HTML WITH PLACEHOLDERS FOR CONTENT
     const panelHtml = `
     <div id="characterSimilarityPanel" class="draggable">
         <div class="charSimPanel-header panelControlBar flex-container">
@@ -61,33 +61,73 @@ jQuery(() => {
             <div id="charSimCloseBtn" class="fa-solid fa-circle-xmark floating_panel_close"></div>
         </div>
         <div class="charSimPanel-body">
-            <p>Similarity results will be displayed here.</p>
+            <div class="charSimPanel-controls">
+                <div id="charSimLoadBtn" class="menu_button">Load Embeddings</div>
+                <div id="charSimCalcBtn" class="menu_button">Calculate Similarities</div>
+                <div class="spacer"></div>
+                <div id="charSimSortBtn" class="menu_button menu_button_icon fa-solid fa-arrow-down" title="Sort Descending"></div>
+            </div>
+            <div id="charSimCharacterList">
+                <!-- Character list will be dynamically inserted here -->
+            </div>
         </div>
     </div>
     `;
 
     // 2. INJECT THE PANEL HTML INTO THE DOM
-    // #movingDivs is the container for floating UI elements in SillyTavern
     $('#movingDivs').append(panelHtml);
 
-    // 3. ATTACH EVENT LISTENERS FOR THE PANEL
+    // 3. POPULATE THE CHARACTER LIST
+    // Sort characters alphabetically by name for the initial view
+    const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
+
+    // Generate the HTML for each character item
+    const characterListHtml = sortedCharacters.map(char => `
+        <div class="charSim-character-item">
+            <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
+            <span>${char.name}</span>
+        </div>
+    `).join('');
+
+    // Insert the generated list into its container
+    $('#charSimCharacterList').html(characterListHtml);
+
+
+    // 4. ATTACH EVENT LISTENERS FOR THE PANEL AND ITS CONTROLS
     $('#charSimCloseBtn').on('click', () => {
         $('#characterSimilarityPanel').removeClass('open');
     });
 
+    $('#charSimLoadBtn').on('click', () => {
+        toastr.info('This will eventually load embeddings for all characters.', 'WIP');
+        console.log('Load Embeddings clicked');
+    });
+
+    $('#charSimCalcBtn').on('click', () => {
+        toastr.info('This will eventually calculate and display similarities.', 'WIP');
+        console.log('Calculate Similarities clicked');
+    });
+
+    $('#charSimSortBtn').on('click', function() {
+        $(this).toggleClass('fa-arrow-down fa-arrow-up');
+        if ($(this).hasClass('fa-arrow-down')) {
+            $(this).attr('title', 'Sort Descending');
+            console.log('Sort direction: Descending');
+        } else {
+            $(this).attr('title', 'Sort Ascending');
+            console.log('Sort direction: Ascending');
+        }
+    });
+
 
     // --- CHARACTER PANEL BUTTON ---
-    // (This part is mostly the same, but the click listener is updated)
     const openButton = document.createElement('div');
     openButton.id = 'characterSimilarityOpenBtn';
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
     openButton.dataset.i18n = '[title]Find Similar Characters';
     openButton.title = 'Find Similar Characters';
 
-    // Update the click listener to show the panel
     openButton.addEventListener('click', () => {
-        console.log('Character Similarity button clicked!');
-        // Show the panel by adding the 'open' class
         $('#characterSimilarityPanel').addClass('open');
     });
 
