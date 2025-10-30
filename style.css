@@ -1,6 +1,50 @@
-.character-similarity-settings .character-similarity_block {
+.character-similarity_block {
     display: flex;
     flex-direction: column;
     gap: 5px;
     margin-bottom: 10px;
+}
+
+/* Main panel container, hidden by default */
+#characterSimilarityPanel {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 900px;
+    height: 70vh;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    z-index: 1001; /* High z-index to appear on top of other content */
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* This class makes the panel visible */
+#characterSimilarityPanel.open {
+    display: flex;
+}
+
+/* Panel header styling */
+.charSimPanel-header {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--header-color); /* Use theme variable */
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    justify-content: space-between;
+}
+.charSimPanel-header > b {
+    flex-grow: 1;
+    text-align: center;
+}
+
+/* Panel body styling */
+.charSimPanel-body {
+    padding: 15px;
+    flex-grow: 1; /* Makes the body fill the available space */
+    overflow-y: auto; /* Adds a scrollbar if content overflows */
 }

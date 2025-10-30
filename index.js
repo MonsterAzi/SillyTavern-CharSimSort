@@ -15,12 +15,11 @@ const defaultSettings = {
  */
 jQuery(() => {
     // --- SETTINGS PANEL ---
-    // 1. INITIALIZE SETTINGS
+    // (This part remains unchanged)
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
 
-    // 2. CREATE THE SETTINGS UI HTML
     const settingsHtml = `
     <div class="character-similarity-settings">
         <div class="inline-drawer">
@@ -44,36 +43,54 @@ jQuery(() => {
         </div>
     </div>`;
 
-    // 3. INJECT THE SETTINGS HTML INTO THE DOM
     $("#extensions_settings2").append(settingsHtml);
 
-    // 4. ATTACH EVENT LISTENERS FOR SETTINGS
     $("#kobold_url_input").on("input", (event) => {
         const value = $(event.target).val();
         extension_settings[extensionName].koboldUrl = value;
         saveSettingsDebounced();
     });
 
+    // --- MAIN SIMILARITY PANEL ---
+    // 1. CREATE THE PANEL HTML
+    const panelHtml = `
+    <div id="characterSimilarityPanel" class="draggable">
+        <div class="charSimPanel-header panelControlBar flex-container">
+            <div class="fa-solid fa-grip drag-grabber" style="cursor: grab;"></div>
+            <b>Character Similarity</b>
+            <div id="charSimCloseBtn" class="fa-solid fa-circle-xmark floating_panel_close"></div>
+        </div>
+        <div class="charSimPanel-body">
+            <p>Similarity results will be displayed here.</p>
+        </div>
+    </div>
+    `;
+
+    // 2. INJECT THE PANEL HTML INTO THE DOM
+    // #movingDivs is the container for floating UI elements in SillyTavern
+    $('#movingDivs').append(panelHtml);
+
+    // 3. ATTACH EVENT LISTENERS FOR THE PANEL
+    $('#charSimCloseBtn').on('click', () => {
+        $('#characterSimilarityPanel').removeClass('open');
+    });
+
+
     // --- CHARACTER PANEL BUTTON ---
-    // 1. CREATE THE BUTTON ELEMENT
+    // (This part is mostly the same, but the click listener is updated)
     const openButton = document.createElement('div');
     openButton.id = 'characterSimilarityOpenBtn';
-    // Using classes from dupefinder and SillyTavern for consistent styling.
-    // 'fa-project-diagram' is a fitting icon for showing relationships/similarity.
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
     openButton.dataset.i18n = '[title]Find Similar Characters';
     openButton.title = 'Find Similar Characters';
 
-    // Add a placeholder click listener
+    // Update the click listener to show the panel
     openButton.addEventListener('click', () => {
         console.log('Character Similarity button clicked!');
-        // In the future, this will open the main UI panel.
-        toastr.info("The Character Similarity panel is not yet implemented.");
+        // Show the panel by adding the 'open' class
+        $('#characterSimilarityPanel').addClass('open');
     });
 
-    // 2. INJECT THE BUTTON INTO THE DOM
-    // This logic is adapted from the dupefinder extension for robustness.
-    // It tries to find the recommended container, and falls back to another location if not found.
     const buttonContainer = document.getElementById('rm_buttons_container');
     if (buttonContainer) {
         buttonContainer.append(openButton);
