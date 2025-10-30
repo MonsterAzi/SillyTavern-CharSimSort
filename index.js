@@ -11,40 +11,26 @@ const defaultSettings = {
 };
 
 // In-memory storage for the loaded embeddings.
-// Map<avatar_filename, embedding_vector>
 const characterEmbeddings = new Map();
 
 // The fields from the character card that will be combined and sent for embedding.
 const fieldsToEmbed = [
-    'name',
-    'description',
-    'personality',
-    'scenario',
-    'first_mes',
-    'mes_example',
+    'name', 'description', 'personality', 'scenario', 'first_mes', 'mes_example',
 ];
-
 
 /**
  * Populates the character list in the panel.
- * Should be called after the app is ready or when the panel is opened.
  */
 function populateCharacterList() {
-    // Sort characters alphabetically by name for the initial view
     const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
-
-    // Generate the HTML for each character item
     const characterListHtml = sortedCharacters.map(char => `
         <div class="charSim-character-item" data-avatar="${char.avatar}">
             <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
             <span>${char.name}</span>
         </div>
     `).join('');
-
-    // Insert the generated list into its container
     $('#charSimCharacterList').html(characterListHtml);
 }
-
 
 /**
  * Fetches embeddings for all characters from the KoboldCpp API.
@@ -56,7 +42,6 @@ async function onEmbeddingsLoad() {
         return;
     }
 
-    // CORRECTED: Use the correct API endpoint for embeddings
     const apiUrl = `${koboldUrl.replace(/\/$/, "")}/api/extra/embeddings`;
     const buttons = $('#charSimLoadBtn, #charSimCalcBtn');
     let toastId = null;
@@ -64,10 +49,18 @@ async function onEmbeddingsLoad() {
     try {
         buttons.prop('disabled', true);
         characterEmbeddings.clear();
-        toastId = toastr.info('Starting embedding process...', 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0, closeButton: true });
+        toastId = toastr.info('Starting embedding process... (0%)', 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0, closeButton: true });
+
+        // CORRECTED: Track progress to prevent toast spam
+        let lastPercent = -1;
 
         for (const [index, char] of characters.entries()) {
-            toastr.info(`Loading embedding for ${char.name} (${index + 1}/${characters.length})...`, 'Loading Embeddings', { toastId: toastId, timeOut: 0, extendedTimeOut: 0 });
+            // CORRECTED: Only update the toast when the percentage changes
+            const currentPercent = Math.floor(((index + 1) / characters.length) * 100);
+            if (currentPercent > lastPercent) {
+                toastr.info(`Processing character ${index + 1} of ${characters.length} (${currentPercent}%)`, 'Loading Embeddings', { toastId: toastId, timeOut: 0, extendedTimeOut: 0 });
+                lastPercent = currentPercent;
+            }
 
             const textToEmbed = fieldsToEmbed
                 .map(field => char[field] || '')
@@ -79,7 +72,6 @@ async function onEmbeddingsLoad() {
                 continue;
             }
 
-            // CORRECTED: Use the correct request body format
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -91,11 +83,10 @@ async function onEmbeddingsLoad() {
             });
 
             if (!response.ok) {
-                throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
+                throw new Error(`API request failed for ${char.name} with status ${response.status}: ${await response.text()}`);
             }
 
             const data = await response.json();
-            // CORRECTED: Use the correct path to the embedding in the response
             const embedding = data?.data?.[0]?.embedding;
 
             if (!embedding || !Array.isArray(embedding)) {
@@ -117,7 +108,6 @@ async function onEmbeddingsLoad() {
     }
 }
 
-
 /**
  * Main function that runs when the script is loaded.
  */
@@ -126,8 +116,7 @@ jQuery(() => {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
-
-    const settingsHtml = `...`; // (HTML is unchanged, keeping it brief)
+    const settingsHtml = `...`; // Unchanged
     $("#extensions_settings2").append(settingsHtml);
     $("#kobold_url_input").on("input", (event) => {
         const value = $(event.target).val();
@@ -150,9 +139,7 @@ jQuery(() => {
                 <div class="spacer"></div>
                 <div id="charSimSortBtn" class="menu_button menu_button_icon fa-solid fa-arrow-down" title="Sort Descending"></div>
             </div>
-            <div id="charSimCharacterList">
-                <!-- Character list will be populated on APP_READY -->
-            </div>
+            <div id="charSimCharacterList"></div>
         </div>
     </div>`;
     $('#movingDivs').append(panelHtml);
@@ -160,8 +147,24 @@ jQuery(() => {
     // Attach event listeners for the panel and its controls
     $('#charSimCloseBtn').on('click', () => $('#characterSimilarityPanel').removeClass('open'));
     $('#charSimLoadBtn').on('click', onEmbeddingsLoad);
-    $('#charSimCalcBtn').on('click', () => { /* Placeholder */ });
-    $('#charSimSortBtn').on('click', function() { /* Placeholder */ });
+
+    // CORRECTED: Restored placeholder logic for calculate button
+    $('#charSimCalcBtn').on('click', () => {
+        toastr.info('This will eventually calculate and display similarities.', 'WIP');
+        console.log('Calculate Similarities clicked');
+    });
+
+    // CORRECTED: Restored functional logic for sort button
+    $('#charSimSortBtn').on('click', function() {
+        $(this).toggleClass('fa-arrow-down fa-arrow-up');
+        if ($(this).hasClass('fa-arrow-down')) {
+            $(this).attr('title', 'Sort Descending');
+            console.log('Sort direction: Descending');
+        } else {
+            $(this).attr('title', 'Sort Ascending');
+            console.log('Sort direction: Ascending');
+        }
+    });
 
     // --- CHARACTER PANEL BUTTON ---
     const openButton = document.createElement('div');
@@ -169,20 +172,13 @@ jQuery(() => {
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
     openButton.title = 'Find Similar Characters';
     openButton.addEventListener('click', () => {
-        // Re-populate the list each time the panel is opened to catch any new characters.
         populateCharacterList();
         $('#characterSimilarityPanel').addClass('open');
     });
-
     const buttonContainer = document.getElementById('rm_buttons_container');
-    if (buttonContainer) {
-        buttonContainer.append(openButton);
-    } else {
-        const searchForm = document.getElementById('form_character_search_form');
-        const searchBar = document.getElementById('character_search_bar');
-        searchForm.insertBefore(openButton, searchBar);
-    }
+    if (buttonContainer) buttonContainer.append(openButton);
+    else document.getElementById('form_character_search_form').insertBefore(openButton, document.getElementById('character_search_bar'));
 
-    // CORRECTED: Wait for the app to be fully ready before populating the initial list.
+    // Wait for the app to be fully ready before populating the initial list.
     eventSource.on(event_types.APP_READY, populateCharacterList);
 });
