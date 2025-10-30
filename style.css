@@ -47,47 +47,44 @@
 
 .charSim-cluster-header { padding: 8px 10px; font-weight: bold; color: var(--text-color-secondary); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
 .charSim-cluster-header .charSim-score { font-style: normal; font-weight: normal; color: var(--text-color); }
+
 .charSim-delimiter { border: none; border-top: 1px dashed var(--border-color); margin: 15px 5px; }
 
 
-/* ------------------------------------------- */
-/* --- NEW: MOBILE RESPONSIVENESS STYLES --- */
-/* ------------------------------------------- */
+/* ======================================= */
+/* NEW: MOBILE-FRIENDLY RESPONSIVE STYLES  */
+/* ======================================= */
 @media (max-width: 768px) {
     #characterSimilarityPanel {
-        width: 95vw; /* Use more of the screen width */
-        height: 85vh; /* Use more of the screen height */
-        max-width: 100%;
-    }
-
-    .charSimPanel-header > b {
-        font-size: 1em; /* Slightly reduce title font size */
+        /* Take up more screen real estate */
+        width: 95vw;
+        height: 85vh;
     }
 
     .charSimPanel-controls {
-        flex-wrap: wrap; /* THIS IS THE KEY FIX: Allow items to wrap to the next line */
-        justify-content: center; /* Center the items for a cleaner look when wrapped */
+        /* Allow controls to wrap to new lines */
+        flex-wrap: wrap;
+        row-gap: 10px;
     }
 
+    /* Hide the spacer element on mobile */
     .charSimPanel-controls .spacer {
-        display: none; /* The spacer is not needed on mobile and can cause layout issues */
+        display: none;
     }
 
-    /* Make the slider and its label take up the full width when wrapped */
-    .charSimPanel-controls label[for="charSimThresholdSlider"] {
+    /* Push the sort button to the far right on the Uniqueness tab */
+    #charSimUniquenessView .charSimPanel-controls #charSimSortBtn {
+        margin-left: auto;
+    }
+
+    /* Make the cluster threshold slider and label take the full width */
+    #charSimClusteringView .charSimPanel-controls label,
+    #charSimClusteringView .charSimPanel-controls input[type="range"] {
+        flex-basis: 100%;
         width: 100%;
-        text-align: center;
-        margin-top: 5px;
+        max-width: none; /* Override desktop max-width */
     }
-    #charSimThresholdSlider {
-        max-width: 100%;
-    }
-
-    .charSim-tab-button {
-        padding: 8px 10px; /* Make tabs a little smaller */
-    }
-
-    .charSim-character-item {
-        padding: 6px 8px; /* Reduce padding on list items */
+    #charSimClusteringView .charSimPanel-controls input[type="range"] {
+        margin-top: 5px; /* Add space between label and slider */
     }
 }
