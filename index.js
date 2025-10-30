@@ -1,11 +1,12 @@
 // Import necessary functions from Silly-Tavern's core scripts.
 import { extension_settings } from "../../../extensions.js";
-import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
+import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_types, getRequestHeaders, textgenerationwebui_settings, textgen_types } from "../../../../script.js";
 
 const extensionName = "character_similarity";
-const API_PREFIX = `/api/extensions/${extensionName}`;
 
 const defaultSettings = {
+    useAltKoboldUrl: false,
+    altKoboldUrl: '',
     clusterThreshold: 0.95,
 };
 
@@ -31,7 +32,12 @@ function calculateMeanEmbedding(embeddings) {
 
 function populateCharacterList() {
     const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
-    const characterListHtml = sortedCharacters.map(char => `<div class="charSim-character-item" data-avatar="${char.avatar}"><img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar"><span class="charSim-name">${char.name}</span></div>`).join('');
+    const characterListHtml = sortedCharacters.map(char => `
+        <div class="charSim-character-item" data-avatar="${char.avatar}">
+            <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
+            <span class="charSim-name">${char.name}</span>
+        </div>
+    `).join('');
     $('#charSimUniquenessList').html(characterListHtml);
 }
 
@@ -43,7 +49,14 @@ function renderUniquenessList() {
     const isDescending = $('#charSimSortBtn').hasClass('fa-arrow-down');
     const sortedList = [...uniquenessResults];
     sortedList.sort((a, b) => isDescending ? b.distance - a.distance : a.distance - b.distance);
-    const characterListHtml = sortedList.map(result => `<div class="charSim-character-item" data-avatar="${result.avatar}"><img src="${getThumbnailUrl('avatar', result.avatar)}" alt="${result.name}'s avatar"><span class="charSim-name">${result.name}</span><div class="charSim-score">${result.distance.toFixed(4)}</div></div>`).join('');
+
+    const characterListHtml = sortedList.map(result => `
+        <div class="charSim-character-item" data-avatar="${result.avatar}">
+            <img src="${getThumbnailUrl('avatar', result.avatar)}" alt="${result.name}'s avatar">
+            <span class="charSim-name">${result.name}</span>
+            <div class="charSim-score">${result.distance.toFixed(4)}</div>
+        </div>
+    `).join('');
     $('#charSimUniquenessList').html(characterListHtml);
 }
 
@@ -70,39 +83,62 @@ function renderClusterList() {
 }
 
 async function onEmbeddingsLoad() {
-    // CORRECTED: This now points to our proxy endpoint on the SillyTavern server.
-    const apiUrl = `${API_PREFIX}/proxy`;
+    const useAlt = extension_settings[extensionName].useAltKoboldUrl;
+    const altUrl = extension_settings[extensionName].altKoboldUrl;
+    const mainUrl = textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP];
+
+    const serverUrl = useAlt ? altUrl : mainUrl;
+
+    if (!serverUrl) {
+        toastr.warning('KoboldCpp URL is not set. Please configure it in the main API Connections or in the extension\'s alternate URL setting.');
+        return;
+    }
+
+    const proxyUrl = '/api/backends/kobold/embed';
     const buttons = $('#charSimLoadBtn, #charSimCalcUniquenessBtn, #charSimCalcClustersBtn');
     let toastId = null;
+
     try {
         buttons.prop('disabled', true);
         characterEmbeddings.clear();
         uniquenessResults = [];
         clusterResults = [];
         toastId = toastr.info(`Loading embeddings for ${characters.length} characters...`, 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0 });
+
         for (const char of characters) {
             const textToEmbed = fieldsToEmbed.map(field => char[field] || '').join('\n').trim();
             if (!textToEmbed) continue;
-            // CORRECTED: The fetch call now goes to our server, not directly to KoboldCpp.
-            const response = await fetch(apiUrl, {
+
+            const response = await fetch(proxyUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ input: textToEmbed })
+                headers: getRequestHeaders(),
+                body: JSON.stringify({
+                    server: serverUrl,
+                    items: [textToEmbed], // The proxy endpoint expects an array of strings
+                }),
             });
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.details || `Proxy request failed for ${char.name}: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`Proxy API request failed for ${char.name} with status ${response.status}: ${errorText}`);
             }
+
             const data = await response.json();
-            const embedding = data?.data?.[0]?.embedding;
-            if (!embedding) throw new Error(`Invalid embedding format for ${char.name}.`);
+            const embedding = data?.embeddings?.[0];
+
+            if (!embedding || !Array.isArray(embedding)) {
+                throw new Error(`Invalid embedding format received for ${char.name}.`);
+            }
+
             characterEmbeddings.set(char.avatar, embedding);
         }
+
         toastr.remove(toastId);
         toastr.success(`Successfully loaded embeddings for ${characterEmbeddings.size} characters.`);
     } catch (error) {
         if (toastId) toastr.remove(toastId);
         toastr.error(`Error loading embeddings: ${error.message}`, 'Error', { timeOut: 10000 });
+        console.error(error);
     } finally {
         buttons.prop('disabled', false);
     }
@@ -179,64 +215,48 @@ function onCalculateClusters() {
     worker.postMessage({ embeddings: characterEmbeddings, threshold });
 }
 
-async function initSettings() {
-    // Client-side settings
+jQuery(() => {
+    // --- SETTINGS ---
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
-
-    // Fetch server-side settings
-    const response = await fetch(`${API_PREFIX}/settings`);
-    const serverSettings = await response.json();
-
-    const settingsHtml = `<div class="character-similarity-settings"><div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Character Similarity</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><div class="character-similarity_block"><label for="kobold_url_input">KoboldCpp URL</label><input id="kobold_url_input" class="text_pole" type="text" value="${serverSettings.koboldUrl}" placeholder="http://127.0.0.1:5001"><small>The base URL for your KoboldCpp instance (server-side setting).</small></div></div></div></div>`;
-    $("#extensions_settings2").append(settingsHtml);
-
-    $("#kobold_url_input").on("input", async (event) => {
-        const value = event.target.value;
-        await fetch(`${API_PREFIX}/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ koboldUrl: value }) });
-    });
-}
-
-jQuery(async () => {
-    await initSettings();
-
-    const panelHtml = `
-    <div id="characterSimilarityPanel">
-        <div class="charSimPanel-content">
-            <div class="charSimPanel-header">
-                <div class="fa-solid fa-grip drag-grabber"></div>
+    const settingsHtml = `
+    <div class="character-similarity-settings">
+        <div class="inline-drawer">
+            <div class="inline-drawer-toggle inline-drawer-header">
                 <b>Character Similarity</b>
-                <div id="charSimCloseBtn" class="fa-solid fa-circle-xmark floating_panel_close"></div>
+                <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
-            <div class="charSimPanel-body">
-                <div class="charSim-tabs">
-                    <div class="charSim-tab-button active" data-tab="uniqueness">Uniqueness</div>
-                    <div class="charSim-tab-button" data-tab="clustering">Clustering</div>
-                </div>
-                <div id="charSimUniquenessView" class="charSim-tab-pane active">
-                    <div class="charSimPanel-controls">
-                        <div id="charSimLoadBtn" class="menu_button">Load Embeddings</div>
-                        <div id="charSimCalcUniquenessBtn" class="menu_button">Calculate Uniqueness</div>
-                        <div class="spacer"></div>
-                        <div id="charSimSortBtn" class="menu_button menu_button_icon fa-solid fa-arrow-down" title="Sort Descending"></div>
-                    </div>
-                    <div id="charSimUniquenessList" class="charSim-list-container"></div>
-                </div>
-                <div id="charSimClusteringView" class="charSim-tab-pane">
-                    <div class="charSimPanel-controls">
-                        <div id="charSimCalcClustersBtn" class="menu_button">Calculate Clusters</div>
-                        <div class="spacer"></div>
-                        <label for="charSimThresholdSlider">Threshold: <span id="charSimThresholdValue">${defaultSettings.clusterThreshold.toFixed(2)}</span></label>
-                        <input type="range" id="charSimThresholdSlider" min="0.5" max="1.0" step="0.01" value="${defaultSettings.clusterThreshold}">
-                    </div>
-                    <div id="charSimClusteringList" class="charSim-list-container">
-                        <p class="charSim-no-results">Load embeddings and click "Calculate Clusters" to see results.</p>
-                    </div>
+            <div class="inline-drawer-content">
+                <div class="character-similarity_block">
+                    <label class="checkbox_label">
+                        <input id="charSim_useAltKoboldUrl" type="checkbox" ${extension_settings[extensionName].useAltKoboldUrl ? 'checked' : ''}>
+                        Use Alternate KoboldCpp URL
+                    </label>
+                    <input
+                        id="charSim_altKoboldUrl"
+                        class="text_pole"
+                        type="text"
+                        value="${extension_settings[extensionName].altKoboldUrl}"
+                        placeholder="http://192.168.1.105:5001"
+                    >
+                    <small>Optional. Overrides the URL from main API settings. Use your local network IP.</small>
                 </div>
             </div>
         </div>
     </div>`;
+    $("#extensions_settings2").append(settingsHtml);
+    $("#charSim_useAltKoboldUrl").on("input", (event) => {
+        extension_settings[extensionName].useAltKoboldUrl = $(event.target).is(':checked');
+        saveSettingsDebounced();
+    });
+    $("#charSim_altKoboldUrl").on("input", (event) => {
+        extension_settings[extensionName].altKoboldUrl = event.target.value;
+        saveSettingsDebounced();
+    });
+
+    // --- MAIN PANEL ---
+    const panelHtml = `<div id="characterSimilarityPanel"><div class="charSimPanel-content"><div class="charSimPanel-header"><div class="fa-solid fa-grip drag-grabber"></div><b>Character Similarity</b><div id="charSimCloseBtn" class="fa-solid fa-circle-xmark floating_panel_close"></div></div><div class="charSimPanel-body"><div class="charSim-tabs"><div class="charSim-tab-button active" data-tab="uniqueness">Uniqueness</div><div class="charSim-tab-button" data-tab="clustering">Clustering</div></div><div id="charSimUniquenessView" class="charSim-tab-pane active"><div class="charSimPanel-controls"><div id="charSimLoadBtn" class="menu_button">Load Embeddings</div><div id="charSimCalcUniquenessBtn" class="menu_button">Calculate Uniqueness</div><div class="spacer"></div><div id="charSimSortBtn" class="menu_button menu_button_icon fa-solid fa-arrow-down" title="Sort Descending"></div></div><div id="charSimUniquenessList" class="charSim-list-container"></div></div><div id="charSimClusteringView" class="charSim-tab-pane"><div class="charSimPanel-controls"><div id="charSimCalcClustersBtn" class="menu_button">Calculate Clusters</div><div class="spacer"></div><label for="charSimThresholdSlider">Threshold: <span id="charSimThresholdValue">${defaultSettings.clusterThreshold.toFixed(2)}</span></label><input type="range" id="charSimThresholdSlider" min="0.5" max="1.0" step="0.01" value="${defaultSettings.clusterThreshold}"></div><div id="charSimClusteringList" class="charSim-list-container"><p class="charSim-no-results">Load embeddings and click "Calculate Clusters" to see results.</p></div></div></div></div></div>`;
     $('#movingDivs').append(panelHtml);
 
     // --- EVENT LISTENERS ---
@@ -248,6 +268,7 @@ jQuery(async () => {
     $('.charSim-tab-button').on('click', function() { const tab = $(this).data('tab'); $('.charSim-tab-button').removeClass('active'); $(this).addClass('active'); $('.charSim-tab-pane').removeClass('active'); $(`#charSim${tab.charAt(0).toUpperCase() + tab.slice(1)}View`).addClass('active'); });
     $('#charSimThresholdSlider').on('input', function() { const value = parseFloat($(this).val()); $('#charSimThresholdValue').text(value.toFixed(2)); extension_settings[extensionName].clusterThreshold = value; saveSettingsDebounced(); });
 
+    // --- CHARACTER PANEL BUTTON ---
     const openButton = document.createElement('div');
     openButton.id = 'characterSimilarityOpenBtn';
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
@@ -256,5 +277,6 @@ jQuery(async () => {
     const buttonContainer = document.getElementById('rm_buttons_container');
     if (buttonContainer) buttonContainer.append(openButton);
     else document.getElementById('form_character_search_form').insertBefore(openButton, document.getElementById('character_search_bar'));
+
     eventSource.on(event_types.APP_READY, populateCharacterList);
 });
