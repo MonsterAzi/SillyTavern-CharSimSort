@@ -27,19 +27,33 @@
     display: flex;
 }
 
-/* Panel header styling */
+/* Panel header styling -- FIX APPLIED HERE */
 .charSimPanel-header {
+    /* Layout properties */
+    display: flex;
+    align-items: center; /* Vertically center all items */
+    justify-content: space-between; /* Pushes items to the sides */
+    gap: 10px; /* Adds a bit of space between elements */
+
+    /* Theming and dimensions */
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
     background-color: var(--header-color);
     border-top-left-radius: 10px;
     border-top-right-radius: 10px;
-    justify-content: space-between;
 }
+
 .charSimPanel-header > b {
-    flex-grow: 1;
-    text-align: center;
+    flex-grow: 1; /* Allows the title to expand and fill the middle space */
+    text-align: center; /* Centers the text within its expanded space */
 }
+
+/* Ensure the grabber and close button don't shrink */
+.charSimPanel-header .drag-grabber,
+.charSimPanel-header .floating_panel_close {
+    flex-shrink: 0;
+}
+
 
 /* Panel body styling */
 .charSimPanel-body {
