@@ -1,68 +1,93 @@
-// Import necessary functions from Silly-Tavern's core scripts.
+// Import necessary functions from SillyTavern's core scripts.
 import { extension_settings } from "../../../extensions.js";
 import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// A unique name for the extension to store its settings.
 const extensionName = "character_similarity";
 
 const defaultSettings = {
     koboldUrl: 'http://127.0.0.1:5001',
+    clusterThreshold: 0.95, // Default similarity for clustering
 };
 
-// In-memory storage for the loaded embeddings.
 const characterEmbeddings = new Map();
-// Stores the results of the last calculation: [{ avatar, name, distance }]
 let similarityResults = [];
+let clusterResults = [];
 
 const fieldsToEmbed = [
     'name', 'description', 'personality', 'scenario', 'first_mes', 'mes_example',
 ];
 
-/**
- * Populates the character list in the panel with an alphabetical, unscored list.
- */
-function populateCharacterList() {
-    const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
-    const characterListHtml = sortedCharacters.map(char => `
-        <div class="charSim-character-item" data-avatar="${char.avatar}">
-            <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
-            <span class="charSim-name">${char.name}</span>
-        </div>
-    `).join('');
-    $('#charSimCharacterList').html(characterListHtml);
-}
+// Instantiate the background worker for clustering.
+const clusterWorker = new Worker(new URL('./clustering.worker.js', import.meta.url));
 
 /**
- * Renders the character list based on the calculated similarity scores and current sort direction.
+ * Renders the character list for the "Uniqueness" tab.
+ * If scores are available, it sorts by them. Otherwise, it shows an alphabetical list.
  */
-function renderSortedList() {
+function renderUniquenessList() {
+    const listContainer = $('#charSimUniquenessList');
     if (similarityResults.length === 0) {
-        // If there are no results, show the default list.
-        populateCharacterList();
+        // If there are no results, show the default alphabetical list.
+        const sortedChars = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
+        const html = sortedChars.map(char => `
+            <div class="charSim-character-item" data-avatar="${char.avatar}">
+                <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
+                <span class="charSim-name">${char.name}</span>
+            </div>
+        `).join('');
+        listContainer.html(html);
         return;
     }
 
     const isDescending = $('#charSimSortBtn').hasClass('fa-arrow-down');
-    const sortedList = [...similarityResults]; // Create a copy to sort
-
-    sortedList.sort((a, b) => {
+    const sortedList = [...similarityResults].sort((a, b) => {
         return isDescending ? b.distance - a.distance : a.distance - b.distance;
     });
 
-    const characterListHtml = sortedList.map(result => `
+    const html = sortedList.map(result => `
         <div class="charSim-character-item" data-avatar="${result.avatar}">
             <img src="${getThumbnailUrl('avatar', result.avatar)}" alt="${result.name}'s avatar">
             <span class="charSim-name">${result.name}</span>
             <div class="charSim-score">${result.distance.toFixed(4)}</div>
         </div>
     `).join('');
-
-    $('#charSimCharacterList').html(characterListHtml);
+    listContainer.html(html);
 }
 
 /**
- * Fetches embeddings for all characters from the KoboldCpp API.
+ * Renders the character groups for the "Clustering" tab.
  */
+function renderClusterList() {
+    const listContainer = $('#charSimClusteringContent');
+    if (clusterResults.length === 0) {
+        listContainer.html('<p class="charSim-placeholder">No clusters found. Try analyzing data with a lower threshold.</p>');
+        return;
+    }
+
+    // Map avatar filenames back to full character objects and filter out groups with only one character.
+    const groupsWithData = clusterResults
+        .map(groupAvatars => groupAvatars.map(avatar => characters.find(c => c.avatar === avatar)).filter(Boolean))
+        .filter(group => group.length > 1);
+
+    if (groupsWithData.length === 0) {
+        listContainer.html('<p class="charSim-placeholder">No groups with more than one character found at this threshold.</p>');
+        return;
+    }
+
+    const html = groupsWithData.map(group => `
+        <div class="charSim-cluster-group">
+            ${group.map(char => `
+                <div class="charSim-character-item" data-avatar="${char.avatar}">
+                    <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
+                    <span class="charSim-name">${char.name}</span>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
+    listContainer.html(html);
+}
+
+
 async function onEmbeddingsLoad() {
     const koboldUrl = extension_settings[extensionName].koboldUrl;
     if (!koboldUrl) {
@@ -71,13 +96,14 @@ async function onEmbeddingsLoad() {
     }
 
     const apiUrl = `${koboldUrl.replace(/\/$/, "")}/api/extra/embeddings`;
-    const buttons = $('#charSimLoadBtn, #charSimCalcBtn');
+    const buttons = $('#charSimLoadBtn, #charSimAnalyzeBtn');
     let toastId = null;
 
     try {
         buttons.prop('disabled', true);
         characterEmbeddings.clear();
-        similarityResults = []; // Clear old results
+        similarityResults = [];
+        clusterResults = [];
 
         toastId = toastr.info(
             `Loading embeddings for ${characters.length} characters... This may take a while.`,
@@ -86,36 +112,19 @@ async function onEmbeddingsLoad() {
         );
 
         for (const char of characters) {
-            const textToEmbed = fieldsToEmbed
-                .map(field => char[field] || '')
-                .join('\n')
-                .trim();
-
-            if (!textToEmbed) {
-                console.log(`Skipping character ${char.name} as it has no text data to embed.`);
-                continue;
-            }
+            const textToEmbed = fieldsToEmbed.map(field => char[field] || '').join('\n').trim();
+            if (!textToEmbed) continue;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: "kcpp",
-                    input: textToEmbed,
-                    truncate: true,
-                }),
+                body: JSON.stringify({ model: "kcpp", input: textToEmbed, truncate: true }),
             });
-
-            if (!response.ok) {
-                throw new Error(`API request failed for ${char.name} with status ${response.status}: ${await response.text()}`);
-            }
+            if (!response.ok) throw new Error(`API request for ${char.name} failed: ${response.status}`);
 
             const data = await response.json();
             const embedding = data?.data?.[0]?.embedding;
-
-            if (!embedding || !Array.isArray(embedding)) {
-                throw new Error(`Invalid embedding format received for ${char.name}.`);
-            }
+            if (!embedding) throw new Error(`Invalid embedding format for ${char.name}.`);
 
             characterEmbeddings.set(char.avatar, embedding);
         }
@@ -126,54 +135,43 @@ async function onEmbeddingsLoad() {
     } catch (error) {
         console.error('Failed to load embeddings:', error);
         if (toastId) toastr.remove(toastId);
-        toastr.error(`An error occurred while loading embeddings: ${error.message}`, 'Error', { timeOut: 10000 });
+        toastr.error(`Error loading embeddings: ${error.message}`, 'Error', { timeOut: 10000 });
     } finally {
         buttons.prop('disabled', false);
     }
 }
 
 /**
- * Calculates the uniqueness score for each character and triggers a re-render of the list.
+ * Calculates uniqueness and triggers the clustering worker.
  */
-function onCalculateSimilarities() {
+function onAnalyzeData() {
     if (characterEmbeddings.size === 0) {
-        toastr.warning('Please load character embeddings first by clicking "Load Embeddings".');
+        toastr.warning('Please load character embeddings first.');
         return;
     }
 
+    // --- 1. Uniqueness Calculation (Fast, on main thread) ---
     toastr.info('Calculating uniqueness scores...');
-
     const embeddings = Array.from(characterEmbeddings.values());
-    const embeddingCount = embeddings.length;
-    const dimension = embeddings[0].length;
+    const meanEmbedding = new Array(embeddings[0].length).fill(0);
+    embeddings.forEach(vector => vector.forEach((val, i) => meanEmbedding[i] += val));
+    meanEmbedding.forEach((_, i) => meanEmbedding[i] /= embeddings.length);
 
-    // 1. Calculate the mean embedding vector
-    const meanEmbedding = new Array(dimension).fill(0);
-    for (const vector of embeddings) {
-        for (let i = 0; i < dimension; i++) {
-            meanEmbedding[i] += vector[i];
-        }
-    }
-    for (let i = 0; i < dimension; i++) {
-        meanEmbedding[i] /= embeddingCount;
-    }
-
-    // 2. Calculate the L1 distance from the mean for each character
     const results = [];
     for (const [avatar, embedding] of characterEmbeddings.entries()) {
-        let distance = 0;
-        for (let i = 0; i < dimension; i++) {
-            distance += Math.abs(embedding[i] - meanEmbedding[i]);
-        }
+        let distance = embedding.reduce((sum, val, i) => sum + Math.abs(val - meanEmbedding[i]), 0);
         const char = characters.find(c => c.avatar === avatar);
-        if (char) {
-            results.push({ avatar: char.avatar, name: char.name, distance: distance });
-        }
+        if (char) results.push({ avatar: char.avatar, name: char.name, distance });
     }
-
     similarityResults = results;
-    renderSortedList(); // Render the list with the new scores
-    toastr.success('Similarity calculation complete.');
+    renderUniquenessList();
+    toastr.success('Uniqueness calculation complete.');
+
+    // --- 2. Clustering (Slow, offloaded to worker) ---
+    toastr.info('Starting cluster analysis in the background...', 'Clustering');
+    const dataForWorker = Array.from(characterEmbeddings.entries()).map(([id, embedding]) => ({ id, embedding }));
+    const threshold = Number($('#charSimThresholdSlider').val());
+    clusterWorker.postMessage({ embeddings: dataForWorker, threshold });
 }
 
 /**
@@ -184,7 +182,23 @@ jQuery(() => {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
-    const settingsHtml = `...`; // Unchanged, omitted for brevity
+
+    const settingsHtml = `
+    <div class="character-similarity-settings">
+        <div class="inline-drawer">
+            <div class="inline-drawer-toggle inline-drawer-header">
+                <b>Character Similarity</b>
+                <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+            </div>
+            <div class="inline-drawer-content">
+                <div class="character-similarity_block">
+                    <label for="kobold_url_input">KoboldCpp URL</label>
+                    <input id="kobold_url_input" class="text_pole" type="text" value="${extension_settings[extensionName].koboldUrl}" placeholder="http://127.0.0.1:5001">
+                    <small>The base URL for your KoboldCpp instance.</small>
+                </div>
+            </div>
+        </div>
+    </div>`;
     $("#extensions_settings2").append(settingsHtml);
     $("#kobold_url_input").on("input", (event) => {
         extension_settings[extensionName].koboldUrl = event.target.value;
@@ -202,25 +216,66 @@ jQuery(() => {
         <div class="charSimPanel-body">
             <div class="charSimPanel-controls">
                 <div id="charSimLoadBtn" class="menu_button">Load Embeddings</div>
-                <div id="charSimCalcBtn" class="menu_button">Calculate Similarities</div>
+                <div id="charSimAnalyzeBtn" class="menu_button">Analyze Data</div>
                 <div class="spacer"></div>
-                <div id="charSimSortBtn" class="menu_button menu_button_icon fa-solid fa.solid fa-arrow-down" title="Sort Descending"></div>
+                <label for="charSimThresholdSlider" class="charSim-slider-label">
+                    Threshold: <span id="charSimThresholdValue">${defaultSettings.clusterThreshold.toFixed(2)}</span>
+                    <input type="range" id="charSimThresholdSlider" min="0.5" max="1.0" step="0.01" value="${defaultSettings.clusterThreshold}">
+                </label>
+                <div id="charSimSortBtn" class="menu_button menu_button_icon fa-solid fa-arrow-down" title="Sort Descending"></div>
             </div>
-            <div id="charSimCharacterList"></div>
+            <div class="charSim-tabs">
+                <div class="charSim-tab active" data-tab="uniqueness">Uniqueness</div>
+                <div class="charSim-tab" data-tab="clustering">Clustering</div>
+            </div>
+            <div class="charSim-tab-content active" id="charSimUniquenessContent">
+                <div id="charSimUniquenessList"></div>
+            </div>
+            <div class="charSim-tab-content" id="charSimClusteringContent">
+                <p class="charSim-placeholder">Click "Analyze Data" to find character clusters.</p>
+            </div>
         </div>
     </div>`;
     $('#movingDivs').append(panelHtml);
 
-    // Attach event listeners for the panel and its controls
+    // --- EVENT LISTENERS ---
     $('#charSimCloseBtn').on('click', () => $('#characterSimilarityPanel').removeClass('open'));
     $('#charSimLoadBtn').on('click', onEmbeddingsLoad);
-    $('#charSimCalcBtn').on('click', onCalculateSimilarities); // Hook up the calculation function
+    $('#charSimAnalyzeBtn').on('click', onAnalyzeData);
 
     $('#charSimSortBtn').on('click', function() {
         $(this).toggleClass('fa-arrow-down fa-arrow-up');
         $(this).attr('title', $(this).hasClass('fa-arrow-down') ? 'Sort Descending' : 'Sort Ascending');
-        renderSortedList(); // Re-render the list with the new sort order
+        renderUniquenessList();
     });
+
+    $('#charSimThresholdSlider').on('input', function() {
+        const value = Number($(this).val());
+        $('#charSimThresholdValue').text(value.toFixed(2));
+        extension_settings[extensionName].clusterThreshold = value;
+        saveSettingsDebounced();
+    });
+
+    $('.charSim-tab').on('click', function() {
+        const tabName = $(this).data('tab');
+        $('.charSim-tab').removeClass('active');
+        $(this).addClass('active');
+        $('.charSim-tab-content').removeClass('active').hide();
+        $(`#${tabName === 'uniqueness' ? 'charSimUniquenessContent' : 'charSimClusteringContent'}`).show().addClass('active');
+        
+        // Hide sort button on clustering tab
+        $('#charSimSortBtn').toggle(tabName === 'uniqueness');
+    });
+
+    clusterWorker.onmessage = (event) => {
+        clusterResults = event.data;
+        renderClusterList();
+        toastr.success('Cluster analysis complete!', 'Clustering');
+    };
+    clusterWorker.onerror = (error) => {
+        console.error("Clustering Worker Error:", error);
+        toastr.error('An error occurred during clustering.', 'Error');
+    };
 
     // --- CHARACTER PANEL BUTTON ---
     const openButton = document.createElement('div');
@@ -228,12 +283,9 @@ jQuery(() => {
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
     openButton.title = 'Find Similar Characters';
     openButton.addEventListener('click', () => {
-        // When opening, if we have results, show them. Otherwise, show the default list.
-        if (similarityResults.length > 0) {
-            renderSortedList();
-        } else {
-            populateCharacterList();
-        }
+        if ($('#characterSimilarityPanel').hasClass('open')) return;
+        renderUniquenessList();
+        renderClusterList();
         $('#characterSimilarityPanel').addClass('open');
     });
     const buttonContainer = document.getElementById('rm_buttons_container');
@@ -242,7 +294,6 @@ jQuery(() => {
     } else {
         document.getElementById('form_character_search_form').insertBefore(openButton, document.getElementById('character_search_bar'));
     }
-
-    // Wait for the app to be fully ready before populating the initial list.
-    eventSource.on(event_types.APP_READY, populateCharacterList);
+    
+    eventSource.on(event_types.APP_READY, renderUniquenessList);
 });
