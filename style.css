@@ -1,18 +1,68 @@
 /* SETTINGS (UNCHANGED) */
-.character-similarity_block { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.character-similarity_block {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
 
-/* MAIN PANEL */
-#characterSimilarityPanel { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 900px; height: 70vh; background-color: var(--background-color); border: 1px solid var(--border-color); border-radius: 10px; z-index: 1001; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
-#characterSimilarityPanel.open { display: flex; }
+/* MAIN PANEL - DESKTOP STYLES */
+#characterSimilarityPanel {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 900px;
+    height: 70vh;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    z-index: 1001;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
 
-.charSimPanel-header { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); background-color: var(--header-color); border-top-left-radius: 10px; border-top-right-radius: 10px; }
-.charSimPanel-header .drag-grabber { cursor: grab; }
-.charSimPanel-header > b { flex-grow: 1; text-align: center; font-size: 1.1em; }
-.charSimPanel-header .drag-grabber, .charSimPanel-header .floating_panel_close { flex-shrink: 0; }
-.charSimPanel-body { display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; }
+#characterSimilarityPanel.open {
+    display: flex;
+}
+
+.charSimPanel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--header-color);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+.charSimPanel-header .drag-grabber {
+    cursor: grab;
+}
+.charSimPanel-header > b {
+    flex-grow: 1;
+    text-align: center;
+    font-size: 1.1em;
+}
+.charSimPanel-header .drag-grabber, .charSimPanel-header .floating_panel_close {
+    flex-shrink: 0;
+}
+.charSimPanel-body {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    overflow: hidden;
+}
 
 /* TABS */
-.charSim-tabs { display: flex; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
+.charSim-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--background-color-sub);
+    flex-shrink: 0; /* Prevent tabs from shrinking */
+}
 .charSim-tab-button { padding: 10px 15px; cursor: pointer; border-right: 1px solid var(--border-color); }
 .charSim-tab-button:hover { background-color: var(--background-color-hover); }
 .charSim-tab-button.active { background-color: var(--background-color); border-bottom: 1px solid transparent; }
@@ -42,49 +92,47 @@
 
 /* CLUSTER GROUPS */
 .charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; padding: 5px; }
-.charSim-cluster-group:not(:last-child) { margin-bottom: 15px; }
-.charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
-
 .charSim-cluster-header { padding: 8px 10px; font-weight: bold; color: var(--text-color-secondary); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
 .charSim-cluster-header .charSim-score { font-style: normal; font-weight: normal; color: var(--text-color); }
-
 .charSim-delimiter { border: none; border-top: 1px dashed var(--border-color); margin: 15px 5px; }
 
 
-/* ======================================= */
-/* NEW: MOBILE-FRIENDLY RESPONSIVE STYLES  */
-/* ======================================= */
+/* =============================================================== */
+/* NEW: MOBILE-FRIENDLY STYLES                                     */
+/* =============================================================== */
 @media (max-width: 768px) {
     #characterSimilarityPanel {
-        /* Take up more screen real estate */
         width: 95vw;
-        height: 85vh;
+        height: 85svh; /* svh is better for mobile viewport height */
+        /* The top/left/transform centering works fine once the size is appropriate for the viewport */
     }
 
+    .charSimPanel-header {
+        padding: 8px; /* Reduce header padding */
+    }
+
+    /* Allow control buttons to wrap to a new line on narrow screens */
     .charSimPanel-controls {
-        /* Allow controls to wrap to new lines */
         flex-wrap: wrap;
-        row-gap: 10px;
+        padding: 8px;
     }
 
-    /* Hide the spacer element on mobile */
-    .charSimPanel-controls .spacer {
-        display: none;
+    /* Make the threshold slider and its label stack vertically for easier use */
+    #charSimClusteringView .charSimPanel-controls {
+        flex-direction: column;
+        align-items: stretch;
     }
-
-    /* Push the sort button to the far right on the Uniqueness tab */
-    #charSimUniquenessView .charSimPanel-controls #charSimSortBtn {
-        margin-left: auto;
+    #charSimClusteringView .charSimPanel-controls .spacer {
+        display: none; /* Hide spacer on mobile for this specific view */
     }
-
-    /* Make the cluster threshold slider and label take the full width */
-    #charSimClusteringView .charSimPanel-controls label,
-    #charSimClusteringView .charSimPanel-controls input[type="range"] {
-        flex-basis: 100%;
+    #charSimThresholdSlider {
+        max-width: none; /* Allow slider to fill the width */
         width: 100%;
-        max-width: none; /* Override desktop max-width */
     }
-    #charSimClusteringView .charSimPanel-controls input[type="range"] {
-        margin-top: 5px; /* Add space between label and slider */
+
+    /* Reduce padding on list items */
+    .charSim-character-item {
+        padding: 6px 8px;
+        gap: 8px;
     }
 }
