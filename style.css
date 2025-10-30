@@ -5,7 +5,6 @@
     margin-bottom: 10px;
 }
 
-/* Main panel container, hidden by default */
 #characterSimilarityPanel {
     display: none;
     position: fixed;
@@ -27,11 +26,10 @@
     display: flex;
 }
 
-/* Panel header styling -- FIXED */
 .charSimPanel-header {
-    display: flex; /* Explicitly set display to flex */
-    align-items: center; /* Vertically center all items */
-    gap: 10px; /* Add space between items */
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
     background-color: var(--header-color);
@@ -42,18 +40,15 @@
     cursor: grab;
 }
 .charSimPanel-header > b {
-    flex-grow: 1; /* Allow the title to take up all available space */
+    flex-grow: 1;
     text-align: center;
     font-size: 1.1em;
 }
-/* Prevent the buttons from shrinking */
 .charSimPanel-header .drag-grabber,
 .charSimPanel-header .floating_panel_close {
     flex-shrink: 0;
 }
 
-
-/* Panel body styling */
 .charSimPanel-body {
     display: flex;
     flex-direction: column;
@@ -61,14 +56,13 @@
     overflow: hidden;
 }
 
-/* Control bar at the top of the panel body */
 .charSimPanel-controls {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px;
     border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0; /* Prevent control bar from shrinking */
+    flex-shrink: 0;
 }
 .charSimPanel-controls .spacer {
     flex-grow: 1;
@@ -77,15 +71,12 @@
     font-size: 1.2em;
 }
 
-
-/* Character list container */
 #charSimCharacterList {
     flex-grow: 1;
     overflow-y: auto;
     padding: 5px;
 }
 
-/* Individual character item in the list */
 .charSim-character-item {
     display: flex;
     align-items: center;
@@ -109,4 +100,21 @@
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
+}
+
+/* NEW: Make character name take up available space */
+.charSim-character-item .charSim-name {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* NEW: Style for the similarity score */
+.charSim-character-item .charSim-score {
+    margin-left: auto; /* Pushes the score to the right */
+    padding-left: 10px;
+    font-size: 0.9em;
+    font-style: italic;
+    color: var(--text-color-secondary);
 }
