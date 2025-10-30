@@ -1,23 +1,17 @@
 /* SETTINGS (UNCHANGED) */
 .character-similarity_block { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
 
-/* MAIN PANEL */
+/* MAIN PANEL -- UPDATED FOR MOBILE */
 #characterSimilarityPanel {
     display: none;
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 90%; /* Use a slightly larger width for small screens */
+    width: 90vw; /* Use viewport width for better mobile scaling */
     max-width: 900px;
-
-    /*
-     * CORRECTED: Use 'svh' (small viewport height) instead of 'vh'.
-     * This makes the height relative to the viewport size when mobile browser UI (like the address bar) is visible,
-     * ensuring the panel doesn't become larger than the screen.
-    */
-    height: 70svh;
-
+    height: 70svh; /* Use SMALL viewport height for mobile compatibility */
+    max-height: 90svh; /* Prevent panel from taking full screen height */
     background-color: var(--background-color);
     border: 1px solid var(--border-color);
     border-radius: 10px;
@@ -25,7 +19,6 @@
     flex-direction: column;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
-
 #characterSimilarityPanel.open { display: flex; }
 
 .charSimPanel-header { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); background-color: var(--header-color); border-top-left-radius: 10px; border-top-right-radius: 10px; }
@@ -65,7 +58,6 @@
 
 /* CLUSTER GROUPS */
 .charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; padding: 5px; }
-.charSim-cluster-group:not(:last-child) { margin-bottom: 15px; }
 .charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
 
 .charSim-cluster-header {
