@@ -10,12 +10,94 @@ const defaultSettings = {
     koboldUrl: 'http://127.0.0.1:5001',
 };
 
+// In-memory storage for the loaded embeddings.
+// Map<avatar_filename, embedding_vector>
+const characterEmbeddings = new Map();
+
+// The fields from the character card that will be combined and sent for embedding.
+const fieldsToEmbed = [
+    'name',
+    'description',
+    'personality',
+    'scenario',
+    'first_mes',
+    'mes_example',
+];
+
+
+/**
+ * Fetches embeddings for all characters from the KoboldCpp API.
+ */
+async function onEmbeddingsLoad() {
+    const koboldUrl = extension_settings[extensionName].koboldUrl;
+    if (!koboldUrl) {
+        toastr.warning('Please set the KoboldCpp URL in the extension settings first.');
+        return;
+    }
+
+    const apiUrl = `${koboldUrl.replace(/\/$/, "")}/api/v1/embedding`;
+    const buttons = $('#charSimLoadBtn, #charSimCalcBtn');
+    let toastId = null;
+
+    try {
+        buttons.prop('disabled', true);
+        characterEmbeddings.clear();
+        toastId = toastr.info('Starting embedding process...', 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0, closeButton: true });
+
+        for (const [index, char] of characters.entries()) {
+            // Update progress toast
+            toastr.info(`Loading embedding for ${char.name} (${index + 1}/${characters.length})...`, 'Loading Embeddings', { toastId: toastId, timeOut: 0, extendedTimeOut: 0 });
+
+            // Combine all relevant text fields into a single string.
+            const textToEmbed = fieldsToEmbed
+                .map(field => char[field] || '')
+                .join('\n')
+                .trim();
+
+            if (!textToEmbed) {
+                console.log(`Skipping character ${char.name} as it has no text data to embed.`);
+                continue;
+            }
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: textToEmbed }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
+            }
+
+            const data = await response.json();
+            const embedding = data?.results?.[0]?.embedding;
+
+            if (!embedding || !Array.isArray(embedding)) {
+                throw new Error(`Invalid embedding format received for ${char.name}.`);
+            }
+
+            // Store the embedding vector.
+            characterEmbeddings.set(char.avatar, embedding);
+        }
+
+        toastr.remove(toastId);
+        toastr.success(`Successfully loaded embeddings for ${characterEmbeddings.size} characters.`);
+
+    } catch (error) {
+        console.error('Failed to load embeddings:', error);
+        toastr.remove(toastId);
+        toastr.error(`An error occurred while loading embeddings: ${error.message}`, 'Error', { timeOut: 10000 });
+    } finally {
+        buttons.prop('disabled', false);
+    }
+}
+
+
 /**
  * Main function that runs when the script is loaded.
  */
 jQuery(() => {
     // --- SETTINGS PANEL ---
-    // (This part remains unchanged)
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
@@ -44,7 +126,6 @@ jQuery(() => {
     </div>`;
 
     $("#extensions_settings2").append(settingsHtml);
-
     $("#kobold_url_input").on("input", (event) => {
         const value = $(event.target).val();
         extension_settings[extensionName].koboldUrl = value;
@@ -52,8 +133,6 @@ jQuery(() => {
     });
 
     // --- MAIN SIMILARITY PANEL ---
-    // 1. CREATE THE PANEL HTML WITH PLACEHOLDERS FOR CONTENT
-    // FIXED: Removed conflicting classes from the header div.
     const panelHtml = `
     <div id="characterSimilarityPanel" class="draggable">
         <div class="charSimPanel-header">
@@ -72,35 +151,32 @@ jQuery(() => {
                 <!-- Character list will be dynamically inserted here -->
             </div>
         </div>
-    </div>
-    `;
+    </div>`;
 
-    // 2. INJECT THE PANEL HTML INTO THE DOM
     $('#movingDivs').append(panelHtml);
 
-    // 3. POPULATE THE CHARACTER LIST
     const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
     const characterListHtml = sortedCharacters.map(char => `
-        <div class="charSim-character-item">
+        <div class="charSim-character-item" data-avatar="${char.avatar}">
             <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
             <span>${char.name}</span>
         </div>
     `).join('');
     $('#charSimCharacterList').html(characterListHtml);
 
-
-    // 4. ATTACH EVENT LISTENERS FOR THE PANEL AND ITS CONTROLS
+    // Attach event listeners for the panel and its controls
     $('#charSimCloseBtn').on('click', () => {
         $('#characterSimilarityPanel').removeClass('open');
     });
-    $('#charSimLoadBtn').on('click', () => {
-        toastr.info('This will eventually load embeddings for all characters.', 'WIP');
-        console.log('Load Embeddings clicked');
-    });
+
+    // Attach the new async function to the button
+    $('#charSimLoadBtn').on('click', onEmbeddingsLoad);
+
     $('#charSimCalcBtn').on('click', () => {
         toastr.info('This will eventually calculate and display similarities.', 'WIP');
         console.log('Calculate Similarities clicked');
     });
+
     $('#charSimSortBtn').on('click', function() {
         $(this).toggleClass('fa-arrow-down fa-arrow-up');
         if ($(this).hasClass('fa-arrow-down')) {
@@ -118,9 +194,11 @@ jQuery(() => {
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
     openButton.dataset.i18n = '[title]Find Similar Characters';
     openButton.title = 'Find Similar Characters';
+
     openButton.addEventListener('click', () => {
         $('#characterSimilarityPanel').addClass('open');
     });
+
     const buttonContainer = document.getElementById('rm_buttons_container');
     if (buttonContainer) {
         buttonContainer.append(openButton);
