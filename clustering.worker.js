@@ -41,6 +41,8 @@ self.onmessage = function(event) {
         let run = 0;
         let lastPercent = -1;
 
+        // The library expects an array of items and a function to compare any two items.
+        // Our items are objects: { id: 'avatar.png', embedding: [...] }
         const clusterer = cluster(embeddings, (a, b) => {
             // Increment counter and report progress
             run++;
@@ -50,7 +52,8 @@ self.onmessage = function(event) {
                 lastPercent = percent;
             }
 
-            // Return the actual similarity
+            // CORRECTED: Pass the embedding arrays (a.embedding, b.embedding) to the math function,
+            // not the entire objects (a, b).
             return cosineSimilarity(a.embedding, b.embedding);
         });
 
