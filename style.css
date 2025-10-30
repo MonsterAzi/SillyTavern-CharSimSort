@@ -45,26 +45,49 @@
 .charSim-cluster-group:not(:last-child) { margin-bottom: 15px; }
 .charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
 
-/* NEW: Cluster Header */
-.charSim-cluster-header {
-    padding: 8px 10px;
-    font-weight: bold;
-    color: var(--text-color-secondary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    background-color: var(--background-color-sub);
-}
-.charSim-cluster-header .charSim-score {
-    font-style: normal;
-    font-weight: normal;
-    color: var(--text-color);
-}
+.charSim-cluster-header { padding: 8px 10px; font-weight: bold; color: var(--text-color-secondary); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
+.charSim-cluster-header .charSim-score { font-style: normal; font-weight: normal; color: var(--text-color); }
+.charSim-delimiter { border: none; border-top: 1px dashed var(--border-color); margin: 15px 5px; }
 
-/* NEW: Delimiter */
-.charSim-delimiter {
-    border: none;
-    border-top: 1px dashed var(--border-color);
-    margin: 15px 5px;
+
+/* ------------------------------------------- */
+/* --- NEW: MOBILE RESPONSIVENESS STYLES --- */
+/* ------------------------------------------- */
+@media (max-width: 768px) {
+    #characterSimilarityPanel {
+        width: 95vw; /* Use more of the screen width */
+        height: 85vh; /* Use more of the screen height */
+        max-width: 100%;
+    }
+
+    .charSimPanel-header > b {
+        font-size: 1em; /* Slightly reduce title font size */
+    }
+
+    .charSimPanel-controls {
+        flex-wrap: wrap; /* THIS IS THE KEY FIX: Allow items to wrap to the next line */
+        justify-content: center; /* Center the items for a cleaner look when wrapped */
+    }
+
+    .charSimPanel-controls .spacer {
+        display: none; /* The spacer is not needed on mobile and can cause layout issues */
+    }
+
+    /* Make the slider and its label take up the full width when wrapped */
+    .charSimPanel-controls label[for="charSimThresholdSlider"] {
+        width: 100%;
+        text-align: center;
+        margin-top: 5px;
+    }
+    #charSimThresholdSlider {
+        max-width: 100%;
+    }
+
+    .charSim-tab-button {
+        padding: 8px 10px; /* Make tabs a little smaller */
+    }
+
+    .charSim-character-item {
+        padding: 6px 8px; /* Reduce padding on list items */
+    }
 }
