@@ -1,27 +1,48 @@
 /* SETTINGS (UNCHANGED) */
 .character-similarity_block { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
 
-/* MAIN PANEL -- UPDATED FOR MOBILE */
+/* MAIN PANEL -- FIXED for MOBILE */
 #characterSimilarityPanel {
-    display: none;
+    display: none; /* Hidden by default */
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90vw; /* Use viewport width for better mobile scaling */
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent backdrop */
+    z-index: 1000;
+    /* Flexbox properties to center the content */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+#characterSimilarityPanel.open {
+    display: flex;
+}
+
+/* NEW: This is the actual visible panel content */
+.charSimPanel-content {
+    width: 80%;
     max-width: 900px;
-    height: 70svh; /* Use SMALL viewport height for mobile compatibility */
-    max-height: 90svh; /* Prevent panel from taking full screen height */
+    height: 70vh;
     background-color: var(--background-color);
     border: 1px solid var(--border-color);
     border-radius: 10px;
-    z-index: 1001;
+    display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    box-shadow: 0 4px A12px rgba(0,0,0,0.25);
+    overflow: hidden; /* Important for border-radius on children */
 }
-#characterSimilarityPanel.open { display: flex; }
 
-.charSimPanel-header { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); background-color: var(--header-color); border-top-left-radius: 10px; border-top-right-radius: 10px; }
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    .charSimPanel-content {
+        width: 95vw;
+        height: 90vh;
+    }
+}
+
+
+.charSimPanel-header { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); background-color: var(--header-color); }
 .charSimPanel-header .drag-grabber { cursor: grab; }
 .charSimPanel-header > b { flex-grow: 1; text-align: center; font-size: 1.1em; }
 .charSimPanel-header .drag-grabber, .charSimPanel-header .floating_panel_close { flex-shrink: 0; }
@@ -32,7 +53,6 @@
 .charSim-tab-button { padding: 10px 15px; cursor: pointer; border-right: 1px solid var(--border-color); }
 .charSim-tab-button:hover { background-color: var(--background-color-hover); }
 .charSim-tab-button.active { background-color: var(--background-color); border-bottom: 1px solid transparent; }
-
 .charSim-tab-pane { display: none; flex-direction: column; flex-grow: 1; overflow: hidden; }
 .charSim-tab-pane.active { display: flex; }
 
@@ -59,25 +79,6 @@
 /* CLUSTER GROUPS */
 .charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; padding: 5px; }
 .charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
-
-.charSim-cluster-header {
-    padding: 8px 10px;
-    font-weight: bold;
-    color: var(--text-color-secondary);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    background-color: var(--background-color-sub);
-}
-.charSim-cluster-header .charSim-score {
-    font-style: normal;
-    font-weight: normal;
-    color: var(--text-color);
-}
-
-.charSim-delimiter {
-    border: none;
-    border-top: 1px dashed var(--border-color);
-    margin: 15px 5px;
-}
+.charSim-cluster-header { padding: 8px 10px; font-weight: bold; color: var(--text-color-secondary); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background-color: var(--background-color-sub); }
+.charSim-cluster-header .charSim-score { font-style: normal; font-weight: normal; color: var(--text-color); }
+.charSim-delimiter { border: none; border-top: 1px dashed var(--border-color); margin: 15px 5px; }
