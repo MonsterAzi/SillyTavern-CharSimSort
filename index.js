@@ -49,18 +49,17 @@ async function onEmbeddingsLoad() {
     try {
         buttons.prop('disabled', true);
         characterEmbeddings.clear();
-        toastId = toastr.info('Starting embedding process... (0%)', 'Loading Embeddings', { timeOut: 0, extendedTimeOut: 0, closeButton: true });
 
-        // CORRECTED: Track progress to prevent toast spam
-        let lastPercent = -1;
+        // CORRECTED: Show a single starting toast without progress.
+        toastId = toastr.info(
+            `Loading embeddings for ${characters.length} characters... This may take a while.`,
+            'Loading Embeddings',
+            { timeOut: 0, extendedTimeOut: 0, closeButton: true }
+        );
 
         for (const [index, char] of characters.entries()) {
-            // CORRECTED: Only update the toast when the percentage changes
-            const currentPercent = Math.floor(((index + 1) / characters.length) * 100);
-            if (currentPercent > lastPercent) {
-                toastr.info(`Processing character ${index + 1} of ${characters.length} (${currentPercent}%)`, 'Loading Embeddings', { toastId: toastId, timeOut: 0, extendedTimeOut: 0 });
-                lastPercent = currentPercent;
-            }
+            // All intermediate progress toasts have been removed.
+            // The process will now run silently in the background.
 
             const textToEmbed = fieldsToEmbed
                 .map(field => char[field] || '')
@@ -96,12 +95,12 @@ async function onEmbeddingsLoad() {
             characterEmbeddings.set(char.avatar, embedding);
         }
 
-        toastr.remove(toastId);
+        toastr.remove(toastId); // Remove the persistent "Loading..." toast
         toastr.success(`Successfully loaded embeddings for ${characterEmbeddings.size} characters.`);
 
     } catch (error) {
         console.error('Failed to load embeddings:', error);
-        toastr.remove(toastId);
+        if (toastId) toastr.remove(toastId); // Ensure loading toast is removed on error
         toastr.error(`An error occurred while loading embeddings: ${error.message}`, 'Error', { timeOut: 10000 });
     } finally {
         buttons.prop('disabled', false);
@@ -113,6 +112,7 @@ async function onEmbeddingsLoad() {
  */
 jQuery(() => {
     // --- SETTINGS PANEL ---
+    // (This part is unchanged and works as expected)
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
@@ -147,23 +147,13 @@ jQuery(() => {
     // Attach event listeners for the panel and its controls
     $('#charSimCloseBtn').on('click', () => $('#characterSimilarityPanel').removeClass('open'));
     $('#charSimLoadBtn').on('click', onEmbeddingsLoad);
-
-    // CORRECTED: Restored placeholder logic for calculate button
     $('#charSimCalcBtn').on('click', () => {
-        toastr.info('This will eventually calculate and display similarities.', 'WIP');
+        toastr.info('Please load embeddings first.', 'WIP');
         console.log('Calculate Similarities clicked');
     });
-
-    // CORRECTED: Restored functional logic for sort button
     $('#charSimSortBtn').on('click', function() {
         $(this).toggleClass('fa-arrow-down fa-arrow-up');
-        if ($(this).hasClass('fa-arrow-down')) {
-            $(this).attr('title', 'Sort Descending');
-            console.log('Sort direction: Descending');
-        } else {
-            $(this).attr('title', 'Sort Ascending');
-            console.log('Sort direction: Ascending');
-        }
+        $(this).attr('title', $(this).hasClass('fa-arrow-down') ? 'Sort Descending' : 'Sort Ascending');
     });
 
     // --- CHARACTER PANEL BUTTON ---
