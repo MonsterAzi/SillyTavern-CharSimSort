@@ -6,16 +6,40 @@ const extensionName = "character_similarity";
 
 const defaultSettings = {
     koboldUrl: 'http://127.0.0.1:5001',
-    clusterThreshold: 0.95, // Default similarity threshold for clustering
+    clusterThreshold: 0.95,
 };
 
 const characterEmbeddings = new Map();
 let uniquenessResults = [];
-let clusterResults = [];
+let clusterResults = []; // Now stores [{ clusterUniqueness, members: [{ avatar, name, intraClusterDistance }] }]
 
 const fieldsToEmbed = [
     'name', 'description', 'personality', 'scenario', 'first_mes', 'mes_example',
 ];
+
+/**
+ * Calculates the mean vector from an array of vectors.
+ * @param {number[][]} embeddings - An array of embedding vectors.
+ * @returns {number[]|null} The mean vector, or null if input is empty.
+ */
+function calculateMeanEmbedding(embeddings) {
+    if (!embeddings || embeddings.length === 0) {
+        return null;
+    }
+    const embeddingCount = embeddings.length;
+    const dimension = embeddings[0].length;
+    const meanEmbedding = new Array(dimension).fill(0);
+
+    for (const vector of embeddings) {
+        for (let i = 0; i < dimension; i++) {
+            meanEmbedding[i] += vector[i];
+        }
+    }
+    for (let i = 0; i < dimension; i++) {
+        meanEmbedding[i] /= embeddingCount;
+    }
+    return meanEmbedding;
+}
 
 function populateCharacterList() {
     const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -49,30 +73,44 @@ function renderUniquenessList() {
 
 function renderClusterList() {
     const container = $('#charSimClusteringList');
-    container.html(''); // Clear previous results
+    container.html('');
 
-    const similarGroups = clusterResults.filter(group => group.length > 1);
+    const similarGroups = clusterResults.filter(group => group.members.length > 1);
 
     if (similarGroups.length === 0) {
         container.html('<p class="charSim-no-results">No similar character groups found at this threshold.</p>');
         return;
     }
 
-    similarGroups.forEach(group => {
+    similarGroups.forEach((groupData, index) => {
         const groupEl = $('<div class="charSim-cluster-group"></div>');
-        group.forEach(charData => {
-            const char = characters.find(c => c.avatar === charData.avatar);
-            if (char) {
-                const charEl = $(`
-                    <div class="charSim-character-item" data-avatar="${char.avatar}">
-                        <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
-                        <span class="charSim-name">${char.name}</span>
-                    </div>
-                `);
-                groupEl.append(charEl);
-            }
+        const headerEl = $(`
+            <div class="charSim-cluster-header">
+                <span>Cluster Uniqueness:</span>
+                <span class="charSim-score">${groupData.clusterUniqueness.toFixed(4)}</span>
+            </div>
+        `);
+        groupEl.append(headerEl);
+
+        // Sort members within the cluster by their distance to the cluster's mean
+        const sortedMembers = groupData.members.sort((a, b) => a.intraClusterDistance - b.intraClusterDistance);
+
+        sortedMembers.forEach(member => {
+            const charEl = $(`
+                <div class="charSim-character-item" data-avatar="${member.avatar}">
+                    <img src="${getThumbnailUrl('avatar', member.avatar)}" alt="${member.name}'s avatar">
+                    <span class="charSim-name">${member.name}</span>
+                    <div class="charSim-score" title="Distance from cluster average">${member.intraClusterDistance.toFixed(4)}</div>
+                </div>
+            `);
+            groupEl.append(charEl);
         });
         container.append(groupEl);
+
+        // Add a delimiter between groups
+        if (index < similarGroups.length - 1) {
+            container.append('<hr class="charSim-delimiter">');
+        }
     });
 }
 
@@ -126,18 +164,17 @@ function onCalculateUniqueness() {
         return;
     }
     toastr.info('Calculating uniqueness scores...');
-    const embeddings = Array.from(characterEmbeddings.values());
-    const dimension = embeddings[0].length;
-    const meanEmbedding = new Array(dimension).fill(0);
-    embeddings.forEach(vector => {
-        for (let i = 0; i < dimension; i++) meanEmbedding[i] += vector[i];
-    });
-    for (let i = 0; i < dimension; i++) meanEmbedding[i] /= embeddings.length;
+    const libraryMeanEmbedding = calculateMeanEmbedding(Array.from(characterEmbeddings.values()));
+    if (!libraryMeanEmbedding) {
+        toastr.error('Could not calculate library average.');
+        return;
+    }
+    const dimension = libraryMeanEmbedding.length;
 
     const results = [];
     for (const [avatar, embedding] of characterEmbeddings.entries()) {
         let distance = 0;
-        for (let i = 0; i < dimension; i++) distance += Math.abs(embedding[i] - meanEmbedding[i]);
+        for (let i = 0; i < dimension; i++) distance += Math.abs(embedding[i] - libraryMeanEmbedding[i]);
         const char = characters.find(c => c.avatar === avatar);
         if (char) results.push({ avatar: char.avatar, name: char.name, distance });
     }
@@ -177,19 +214,57 @@ function onCalculateClusters() {
     const worker = new Worker(URL.createObjectURL(blob));
 
     worker.onmessage = (event) => {
-        clusterResults = event.data;
+        const groups = event.data;
+        const libraryMeanEmbedding = calculateMeanEmbedding(Array.from(characterEmbeddings.values()));
+        if (!libraryMeanEmbedding) {
+            toastr.error('Could not calculate library average.');
+            return;
+        }
+
+        const dimension = libraryMeanEmbedding.length;
+        const processedGroups = [];
+
+        for (const group of groups) {
+            const memberEmbeddings = group.map(member => characterEmbeddings.get(member.avatar));
+            const clusterMeanEmbedding = calculateMeanEmbedding(memberEmbeddings);
+
+            if (!clusterMeanEmbedding) continue;
+
+            let clusterUniqueness = 0;
+            for (let i = 0; i < dimension; i++) {
+                clusterUniqueness += Math.abs(clusterMeanEmbedding[i] - libraryMeanEmbedding[i]);
+            }
+
+            const members = group.map(member => {
+                const char = characters.find(c => c.avatar === member.avatar);
+                const embedding = characterEmbeddings.get(member.avatar);
+                let intraClusterDistance = 0;
+                for (let i = 0; i < dimension; i++) {
+                    intraClusterDistance += Math.abs(embedding[i] - clusterMeanEmbedding[i]);
+                }
+                return { avatar: member.avatar, name: char.name, intraClusterDistance };
+            });
+
+            processedGroups.push({ clusterUniqueness, members });
+        }
+
+        // Sort groups by member count (largest first)
+        clusterResults = processedGroups.sort((a, b) => b.members.length - a.members.length);
+
         renderClusterList();
         toastr.remove(toastId);
-        toastr.success(`Clustering complete. Found ${clusterResults.filter(g => g.length > 1).length} groups.`);
+        toastr.success(`Clustering complete. Found ${clusterResults.filter(g => g.members.length > 1).length} groups.`);
         buttons.prop('disabled', false);
         worker.terminate();
     };
+
     worker.onerror = (error) => {
         toastr.remove(toastId);
         toastr.error(`Clustering worker error: ${error.message}`, 'Error');
         buttons.prop('disabled', false);
         worker.terminate();
     };
+
     worker.postMessage({ embeddings: characterEmbeddings, threshold });
 }
 
@@ -199,7 +274,6 @@ jQuery(() => {
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
     
-    // CORRECTED: Restored the full HTML for the settings panel.
     const settingsHtml = `
     <div class="character-similarity-settings">
         <div class="inline-drawer">
@@ -210,20 +284,13 @@ jQuery(() => {
             <div class="inline-drawer-content">
                 <div class="character-similarity_block">
                     <label for="kobold_url_input">KoboldCpp URL</label>
-                    <input
-                        id="kobold_url_input"
-                        class="text_pole"
-                        type="text"
-                        value="${extension_settings[extensionName].koboldUrl}"
-                        placeholder="http://127.0.0.1:5001"
-                    >
+                    <input id="kobold_url_input" class="text_pole" type="text" value="${extension_settings[extensionName].koboldUrl}" placeholder="http://127.0.0.1:5001">
                     <small>The base URL for your KoboldCpp instance.</small>
                 </div>
             </div>
         </div>
     </div>`;
     $("#extensions_settings2").append(settingsHtml);
-
     $("#kobold_url_input").on("input", (event) => {
         extension_settings[extensionName].koboldUrl = event.target.value;
         saveSettingsDebounced();
@@ -240,7 +307,6 @@ jQuery(() => {
                 <div class="charSim-tab-button active" data-tab="uniqueness">Uniqueness</div>
                 <div class="charSim-tab-button" data-tab="clustering">Clustering</div>
             </div>
-
             <div id="charSimUniquenessView" class="charSim-tab-pane active">
                 <div class="charSimPanel-controls">
                     <div id="charSimLoadBtn" class="menu_button">Load Embeddings</div>
@@ -250,7 +316,6 @@ jQuery(() => {
                 </div>
                 <div id="charSimUniquenessList" class="charSim-list-container"></div>
             </div>
-
             <div id="charSimClusteringView" class="charSim-tab-pane">
                 <div class="charSimPanel-controls">
                     <div id="charSimCalcClustersBtn" class="menu_button">Calculate Clusters</div>
@@ -277,7 +342,6 @@ jQuery(() => {
         $(this).attr('title', $(this).hasClass('fa-arrow-down') ? 'Sort Descending' : 'Sort Ascending');
         renderUniquenessList();
     });
-
     $('.charSim-tab-button').on('click', function() {
         const tab = $(this).data('tab');
         $('.charSim-tab-button').removeClass('active');
@@ -285,7 +349,6 @@ jQuery(() => {
         $('.charSim-tab-pane').removeClass('active');
         $(`#charSim${tab.charAt(0).toUpperCase() + tab.slice(1)}View`).addClass('active');
     });
-
     $('#charSimThresholdSlider').on('input', function() {
         const value = parseFloat($(this).val());
         $('#charSimThresholdValue').text(value.toFixed(2));

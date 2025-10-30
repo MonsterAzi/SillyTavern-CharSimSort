@@ -37,9 +37,34 @@
 .charSim-character-item img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .charSim-character-item .charSim-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* UNIQUENESS SCORE */
+/* SCORE (SHARED) */
 .charSim-character-item .charSim-score { margin-left: auto; padding-left: 10px; font-size: 0.9em; font-style: italic; color: var(--text-color-secondary); }
 
 /* CLUSTER GROUPS */
-.charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 15px; padding: 5px; }
+.charSim-cluster-group { border: 1px solid var(--border-color); border-radius: 5px; padding: 5px; }
+.charSim-cluster-group:not(:last-child) { margin-bottom: 15px; }
 .charSim-cluster-group .charSim-character-item:last-child { border-bottom: none; }
+
+/* NEW: Cluster Header */
+.charSim-cluster-header {
+    padding: 8px 10px;
+    font-weight: bold;
+    color: var(--text-color-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--background-color-sub);
+}
+.charSim-cluster-header .charSim-score {
+    font-style: normal;
+    font-weight: normal;
+    color: var(--text-color);
+}
+
+/* NEW: Delimiter */
+.charSim-delimiter {
+    border: none;
+    border-top: 1px dashed var(--border-color);
+    margin: 15px 5px;
+}
