@@ -6,6 +6,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Azazelle (AI-Assisted)",
-    "version": "1.2.2",
-    "homePage": ""
+    "version": "1.2.4",
+    "homePage": "",
+    "server_plugin": "server-plugin/plugin.js"
 }

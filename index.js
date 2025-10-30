@@ -3,9 +3,10 @@ import { extension_settings } from "../../../extensions.js";
 import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
 const extensionName = "character_similarity";
+const API_PREFIX = `/api/extensions/${extensionName}`;
 
+// Client-side settings are now minimal, mainly for UI state.
 const defaultSettings = {
-    koboldUrl: 'http://127.0.0.1:5001',
     clusterThreshold: 0.95,
 };
 
@@ -31,12 +32,7 @@ function calculateMeanEmbedding(embeddings) {
 
 function populateCharacterList() {
     const sortedCharacters = characters.slice().sort((a, b) => a.name.localeCompare(b.name));
-    const characterListHtml = sortedCharacters.map(char => `
-        <div class="charSim-character-item" data-avatar="${char.avatar}">
-            <img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar">
-            <span class="charSim-name">${char.name}</span>
-        </div>
-    `).join('');
+    const characterListHtml = sortedCharacters.map(char => `<div class="charSim-character-item" data-avatar="${char.avatar}"><img src="${getThumbnailUrl('avatar', char.avatar)}" alt="${char.name}'s avatar"><span class="charSim-name">${char.name}</span></div>`).join('');
     $('#charSimUniquenessList').html(characterListHtml);
 }
 
@@ -48,14 +44,7 @@ function renderUniquenessList() {
     const isDescending = $('#charSimSortBtn').hasClass('fa-arrow-down');
     const sortedList = [...uniquenessResults];
     sortedList.sort((a, b) => isDescending ? b.distance - a.distance : a.distance - b.distance);
-
-    const characterListHtml = sortedList.map(result => `
-        <div class="charSim-character-item" data-avatar="${result.avatar}">
-            <img src="${getThumbnailUrl('avatar', result.avatar)}" alt="${result.name}'s avatar">
-            <span class="charSim-name">${result.name}</span>
-            <div class="charSim-score">${result.distance.toFixed(4)}</div>
-        </div>
-    `).join('');
+    const characterListHtml = sortedList.map(result => `<div class="charSim-character-item" data-avatar="${result.avatar}"><img src="${getThumbnailUrl('avatar', result.avatar)}" alt="${result.name}'s avatar"><span class="charSim-name">${result.name}</span><div class="charSim-score">${result.distance.toFixed(4)}</div></div>`).join('');
     $('#charSimUniquenessList').html(characterListHtml);
 }
 
@@ -82,12 +71,7 @@ function renderClusterList() {
 }
 
 async function onEmbeddingsLoad() {
-    const koboldUrl = extension_settings[extensionName].koboldUrl;
-    if (!koboldUrl) {
-        toastr.warning('Please set the KoboldCpp URL in the extension settings first.');
-        return;
-    }
-    const apiUrl = `${koboldUrl.replace(/\/$/, "")}/api/extra/embeddings`;
+    const apiUrl = `${API_PREFIX}/proxy`;
     const buttons = $('#charSimLoadBtn, #charSimCalcUniquenessBtn, #charSimCalcClustersBtn');
     let toastId = null;
     try {
@@ -99,8 +83,11 @@ async function onEmbeddingsLoad() {
         for (const char of characters) {
             const textToEmbed = fieldsToEmbed.map(field => char[field] || '').join('\n').trim();
             if (!textToEmbed) continue;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: "kcpp", input: textToEmbed, truncate: true }) });
-            if (!response.ok) throw new Error(`API request failed for ${char.name}: ${response.status}`);
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: textToEmbed }) });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || `Proxy request failed for ${char.name}: ${response.status}`);
+            }
             const data = await response.json();
             const embedding = data?.data?.[0]?.embedding;
             if (!embedding) throw new Error(`Invalid embedding format for ${char.name}.`);
@@ -187,16 +174,26 @@ function onCalculateClusters() {
     worker.postMessage({ embeddings: characterEmbeddings, threshold });
 }
 
-jQuery(() => {
-    // --- SETTINGS ---
+async function initSettings() {
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
-    const settingsHtml = `<div class="character-similarity-settings"><div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Character Similarity</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><div class="character-similarity_block"><label for="kobold_url_input">KoboldCpp URL</label><input id="kobold_url_input" class="text_pole" type="text" value="${extension_settings[extensionName].koboldUrl}" placeholder="http://127.0.0.1:5001"><small>The base URL for your KoboldCpp instance.</small></div></div></div></div>`;
-    $("#extensions_settings2").append(settingsHtml);
-    $("#kobold_url_input").on("input", (event) => { extension_settings[extensionName].koboldUrl = event.target.value; saveSettingsDebounced(); });
 
-    // --- MAIN PANEL ---
+    const response = await fetch(`${API_PREFIX}/settings`);
+    const serverSettings = await response.json();
+
+    const settingsHtml = `<div class="character-similarity-settings"><div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Character Similarity</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><div class="character-similarity_block"><label for="kobold_url_input">KoboldCpp URL</label><input id="kobold_url_input" class="text_pole" type="text" value="${serverSettings.koboldUrl}" placeholder="http://127.0.0.1:5001"><small>The base URL for your KoboldCpp instance (server-side setting).</small></div></div></div></div>`;
+    $("#extensions_settings2").append(settingsHtml);
+
+    $("#kobold_url_input").on("input", async (event) => {
+        const value = event.target.value;
+        await fetch(`${API_PREFIX}/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ koboldUrl: value }) });
+    });
+}
+
+jQuery(async () => {
+    await initSettings();
+
     const panelHtml = `
     <div id="characterSimilarityPanel">
         <div class="charSimPanel-content">
@@ -244,7 +241,6 @@ jQuery(() => {
     $('.charSim-tab-button').on('click', function() { const tab = $(this).data('tab'); $('.charSim-tab-button').removeClass('active'); $(this).addClass('active'); $('.charSim-tab-pane').removeClass('active'); $(`#charSim${tab.charAt(0).toUpperCase() + tab.slice(1)}View`).addClass('active'); });
     $('#charSimThresholdSlider').on('input', function() { const value = parseFloat($(this).val()); $('#charSimThresholdValue').text(value.toFixed(2)); extension_settings[extensionName].clusterThreshold = value; saveSettingsDebounced(); });
 
-    // --- CHARACTER PANEL BUTTON ---
     const openButton = document.createElement('div');
     openButton.id = 'characterSimilarityOpenBtn';
     openButton.classList.add('menu_button', 'fa-solid', 'fa-project-diagram', 'faSmallFontSquareFix');
@@ -253,6 +249,5 @@ jQuery(() => {
     const buttonContainer = document.getElementById('rm_buttons_container');
     if (buttonContainer) buttonContainer.append(openButton);
     else document.getElementById('form_character_search_form').insertBefore(openButton, document.getElementById('character_search_bar'));
-
     eventSource.on(event_types.APP_READY, populateCharacterList);
 });
