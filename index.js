@@ -5,7 +5,6 @@ import { characters, getThumbnailUrl, saveSettingsDebounced, eventSource, event_
 const extensionName = "character_similarity";
 const API_PREFIX = `/api/extensions/${extensionName}`;
 
-// Client-side settings are now minimal, mainly for UI state.
 const defaultSettings = {
     clusterThreshold: 0.95,
 };
@@ -71,6 +70,7 @@ function renderClusterList() {
 }
 
 async function onEmbeddingsLoad() {
+    // CORRECTED: This now points to our proxy endpoint on the SillyTavern server.
     const apiUrl = `${API_PREFIX}/proxy`;
     const buttons = $('#charSimLoadBtn, #charSimCalcUniquenessBtn, #charSimCalcClustersBtn');
     let toastId = null;
@@ -83,7 +83,12 @@ async function onEmbeddingsLoad() {
         for (const char of characters) {
             const textToEmbed = fieldsToEmbed.map(field => char[field] || '').join('\n').trim();
             if (!textToEmbed) continue;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: textToEmbed }) });
+            // CORRECTED: The fetch call now goes to our server, not directly to KoboldCpp.
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input: textToEmbed })
+            });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.details || `Proxy request failed for ${char.name}: ${response.status}`);
@@ -97,7 +102,7 @@ async function onEmbeddingsLoad() {
         toastr.success(`Successfully loaded embeddings for ${characterEmbeddings.size} characters.`);
     } catch (error) {
         if (toastId) toastr.remove(toastId);
-        toastr.error(`Error loading embeddings: ${error.message}`, 'Error');
+        toastr.error(`Error loading embeddings: ${error.message}`, 'Error', { timeOut: 10000 });
     } finally {
         buttons.prop('disabled', false);
     }
@@ -175,10 +180,12 @@ function onCalculateClusters() {
 }
 
 async function initSettings() {
+    // Client-side settings
     extension_settings[extensionName] = extension_settings[extensionName] || {};
     Object.assign(defaultSettings, extension_settings[extensionName]);
     Object.assign(extension_settings[extensionName], defaultSettings);
 
+    // Fetch server-side settings
     const response = await fetch(`${API_PREFIX}/settings`);
     const serverSettings = await response.json();
 
