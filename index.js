@@ -1196,6 +1196,36 @@ class UIManager {
         });
     }
 
+    static getStarsHtml(value, isPredicted = false, lower = null, upper = null) {
+        if (lower === null || lower === undefined) lower = value;
+        if (upper === null || upper === undefined) upper = value;
+
+        const colorSolid = isPredicted ? '#007bff' : '#ffd700';
+        const colorFaded = isPredicted ? '#89CFF0' : '#ffd700';
+        const colorEmpty = '#4a4a4a';
+
+        let html = '';
+        for (let i = 0; i < 5; i++) {
+            const valSolid = Math.max(0, Math.min(1, lower - i));
+            const p1 = valSolid * 100;
+
+            const valFadedEnd = Math.max(0, Math.min(1, upper - i));
+            const p2 = valFadedEnd * 100;
+
+            let style = '';
+            if (p1 >= 100) {
+                style = `color: ${colorSolid};`;
+            } else if (p2 <= 0) {
+                style = `color: ${colorEmpty};`;
+            } else {
+                style = `background: linear-gradient(90deg, ${colorSolid} 0%, ${colorSolid} ${p1}%, ${colorFaded} ${p1}%, ${colorFaded} ${p2}%, ${colorEmpty} ${p2}%, ${colorEmpty} 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: none; -webkit-text-stroke: 0;`;
+            }
+            html += `<i class="fa-solid fa-star" style="${style}"></i>`;
+        }
+        return html;
+    }
+
+
     toggleParamInput(method) {
         const show = ['isolation', 'lof', 'knn', 'lunar'].includes(method);
         $('#charSim_param_container').css('display', show ? 'flex' : 'none');
@@ -1233,26 +1263,7 @@ class UIManager {
         }
 
         const html = charList.map(c => {
-            const rating = c.rating || 0;
-            const isPredicted = c.isPredicted;
-
-            // Create mini star HTML string
-            let starHtml = '';
-            for (let i = 0; i < 5; i++) {
-                const diff = rating - i;
-                const color = isPredicted ? '#89CFF0' : '#ffd700';
-                const emptyColor = '#4a4a4a';
-                let style = `color: ${emptyColor};`;
-
-                if (diff >= 1) {
-                    style = `color: ${color};`;
-                } else if (diff > 0) {
-                    const percent = diff * 100;
-                    style = `background: linear-gradient(90deg, ${color} ${percent}%, ${emptyColor} ${percent}%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: none; -webkit-text-stroke: 0;`;
-                }
-
-                starHtml += `<i class="fa-solid fa-star" style="${style}"></i>`;
-            }
+            const starHtml = UIManager.getStarsHtml(c.rating || 0, c.isPredicted, c.predLower, c.predUpper);
 
             return `
             <div class="charSim-grid-card" title="${c.name}" data-avatar="${c.avatar}">
@@ -1263,6 +1274,7 @@ class UIManager {
                 <div class="charSim-grid-stars">${starHtml}</div>
             </div>`;
         }).join('');
+
 
         container.html(html);
     }
@@ -1376,47 +1388,11 @@ class UIManager {
     }
 
     renderStars(container, value, isPredicted = false, lower = null, upper = null) {
-        // Defaults if not provided (e.g. mouse interaction usually implies scalar value)
-        if (lower === null || lower === undefined) lower = value;
-        if (upper === null || upper === undefined) upper = value;
-
-        const stars = container.find('i');
-        const colorSolid = isPredicted ? '#007bff' : '#ffd700';
-        const colorFaded = isPredicted ? '#89CFF0' : '#ffd700';
-        const colorEmpty = '#4a4a4a';
-
-        stars.each((index, el) => {
-            const star = $(el);
-            star.removeAttr('style');
-
-            // Calculate percentages for this specific star (0 to 100)
-            const valSolid = Math.max(0, Math.min(1, lower - index));
-            const p1 = valSolid * 100;
-
-            const valFadedEnd = Math.max(0, Math.min(1, upper - index));
-            const p2 = valFadedEnd * 100;
-
-            if (p1 >= 100) {
-                star.css('color', colorSolid);
-            } else if (p2 <= 0) {
-                star.css('color', colorEmpty);
-            } else {
-                star.css({
-                    'background': `linear-gradient(90deg, 
-                        ${colorSolid} 0%, ${colorSolid} ${p1}%, 
-                        ${colorFaded} ${p1}%, ${colorFaded} ${p2}%, 
-                        ${colorEmpty} ${p2}%, ${colorEmpty} 100%)`,
-                    '-webkit-background-clip': 'text',
-                    '-webkit-text-fill-color': 'transparent',
-                    'color': 'transparent',
-                    'text-shadow': 'none',
-                    '-webkit-text-stroke': '0'
-                });
-            }
-        });
-
+        const html = UIManager.getStarsHtml(value, isPredicted, lower, upper);
+        container.html(html);
         container.toggleClass('charSim-rating-predicted', isPredicted);
     }
+
 
     loadNextSimilarBatch() {
         if (this.currentSimilarOffset >= this.currentSimilarList.length) return;
