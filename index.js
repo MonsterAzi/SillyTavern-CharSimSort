@@ -559,11 +559,8 @@ class ComputeEngine {
             const upper = predHigh[idx];
             let width = Math.abs(upper - lower);
 
-<<<<<<< HEAD
             resultMap.set(predictAvatars[idx], { score, width, lower, upper });
-=======
-            resultMap.set(predictAvatars[idx], { score, width });
->>>>>>> 7df3bd139654636b92cfec9116f67d57fbc59c11
+
         });
 
         return resultMap;
@@ -1295,13 +1292,9 @@ class UIManager {
         if (currentRating === 0 && this.ext.predictedRatings.has(avatar)) {
             const p = this.ext.predictedRatings.get(avatar);
             currentRating = p.score;
-<<<<<<< HEAD
             predLower = p.lower || 0;
             predUpper = p.upper || 0;
-=======
-            predLower = p.lower;
-            predUpper = p.upper;
->>>>>>> 7df3bd139654636b92cfec9116f67d57fbc59c11
+
             isPredicted = true;
         }
 
@@ -1613,13 +1606,9 @@ class CharacterSimilarityExtension {
                 const p = this.predictedRatings.get(c.avatar);
                 rating = p.score;
                 confidenceWidth = p.width;
-<<<<<<< HEAD
                 predLower = p.lower || 0;
                 predUpper = p.upper || 0;
-=======
-                predLower = p.lower;
-                predUpper = p.upper;
->>>>>>> 7df3bd139654636b92cfec9116f67d57fbc59c11
+
                 isPredicted = true;
             }
 
