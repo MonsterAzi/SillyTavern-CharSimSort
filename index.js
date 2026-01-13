@@ -1,13 +1,13 @@
 // --- Imports ---
 import { extension_settings } from "../../../extensions.js";
-import { 
-    characters, 
-    getThumbnailUrl, 
-    saveSettingsDebounced, 
-    eventSource, 
-    event_types, 
+import {
+    characters,
+    getThumbnailUrl,
+    saveSettingsDebounced,
+    eventSource,
+    event_types,
     getRequestHeaders,
-    selectCharacterById 
+    selectCharacterById
 } from "../../../../script.js";
 
 // --- Constants & Config ---
@@ -82,7 +82,7 @@ class SimilarityService {
                     server: url,
                 }),
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.model) return data.model;
@@ -104,15 +104,15 @@ class SimilarityService {
         // 1. Identify Model
         const modelName = await this.getModelName();
         this.currentModelName = modelName; // Store for prediction usage
-        
+
         // 2. Load Cache
         if (!extension_settings[CACHE_KEY]) extension_settings[CACHE_KEY] = {};
         if (!extension_settings[CACHE_KEY][modelName]) extension_settings[CACHE_KEY][modelName] = {};
-        
+
         const currentCache = extension_settings[CACHE_KEY][modelName];
         const toRequest = [];
         const toRequestIndices = [];
-        
+
         // 3. Check Cache
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
@@ -182,7 +182,7 @@ class SimilarityService {
                 const entry = cache[item.avatar];
                 if (!entry || entry.hash !== item.hash || !entry.vector) {
                     isValid = false;
-                    break; 
+                    break;
                 }
                 map.set(item.avatar, entry.vector);
             }
@@ -204,8 +204,8 @@ class SimilarityService {
         }
         const cache = extension_settings[CACHE_KEY][this.currentModelName];
         const map = new Map();
-        for(const key in cache) {
-            if(cache[key].vector) map.set(key, cache[key].vector);
+        for (const key in cache) {
+            if (cache[key].vector) map.set(key, cache[key].vector);
         }
         return map;
     }
@@ -237,7 +237,7 @@ class SimilarityService {
 
         return data.embeddings[0];
     }
-    
+
     clearCache() {
         extension_settings[CACHE_KEY] = {};
         saveSettingsDebounced();
@@ -275,12 +275,12 @@ class SimpleDecisionTree {
 
         const nFeats = Math.floor(Math.sqrt(numFeatures));
         const featureIndices = [];
-        for(let i=0; i<numFeatures; i++) featureIndices.push(i);
+        for (let i = 0; i < numFeatures; i++) featureIndices.push(i);
         for (let i = featureIndices.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [featureIndices[i], featureIndices[j]] = [featureIndices[j], featureIndices[i]];
         }
-        
+
         for (let i = 0; i < nFeats; i++) {
             const featureIdx = featureIndices[i];
             for (let k = 0; k < 10; k++) {
@@ -289,8 +289,8 @@ class SimpleDecisionTree {
 
                 const leftIndices = [];
                 const rightIndices = [];
-                for(let r=0; r<numSamples; r++) {
-                    if(X[r][featureIdx] < threshold) leftIndices.push(r);
+                for (let r = 0; r < numSamples; r++) {
+                    if (X[r][featureIdx] < threshold) leftIndices.push(r);
                     else rightIndices.push(r);
                 }
 
@@ -298,10 +298,10 @@ class SimpleDecisionTree {
 
                 const leftMean = leftIndices.reduce((sum, idx) => sum + y[idx], 0) / leftIndices.length;
                 const rightMean = rightIndices.reduce((sum, idx) => sum + y[idx], 0) / rightIndices.length;
-                
+
                 let error = 0;
-                for(const idx of leftIndices) error += (y[idx] - leftMean) ** 2;
-                for(const idx of rightIndices) error += (y[idx] - rightMean) ** 2;
+                for (const idx of leftIndices) error += (y[idx] - leftMean) ** 2;
+                for (const idx of rightIndices) error += (y[idx] - rightMean) ** 2;
 
                 if (error < bestError) {
                     bestError = error;
@@ -361,13 +361,13 @@ class GradientBoostingRegressor {
             for (let i = 0; i < this.nEstimators; i++) {
                 // Residuals = y - F(x)
                 const residuals = y.map((yi, idx) => yi - currentPreds[idx]);
-                
+
                 const tree = new SimpleDecisionTree(this.maxDepth);
                 tree.fit(X, residuals);
                 this.trees.push(tree);
 
                 const updates = X.map(row => tree.predict(row));
-                for(let k=0; k<y.length; k++) {
+                for (let k = 0; k < y.length; k++) {
                     currentPreds[k] += this.learningRate * updates[k];
                 }
             }
@@ -388,7 +388,7 @@ class GradientBoostingRegressor {
                 this.trees.push(tree);
 
                 const updates = X.map(row => tree.predict(row));
-                for(let k=0; k<y.length; k++) {
+                for (let k = 0; k < y.length; k++) {
                     currentPreds[k] += this.learningRate * updates[k];
                 }
             }
@@ -410,7 +410,7 @@ class GradientBoostingRegressor {
  * Compute Engine: Handles Math Algorithms
  */
 class ComputeEngine {
-    
+
     // --- Basic Math ---
 
     static fuzzyMatch(pattern, text) {
@@ -419,7 +419,7 @@ class ComputeEngine {
         let score = 0;
         let patternIndex = 0;
         let consecutiveBonus = 0;
-    
+
         for (let i = 0; i < text.length && patternIndex < pattern.length; i++) {
             if (text[i] === pattern[patternIndex]) {
                 score += 1 + consecutiveBonus;
@@ -429,7 +429,7 @@ class ComputeEngine {
                 consecutiveBonus = 0;
             }
         }
-        
+
         // if the whole pattern was found, add a bonus based on length ratio
         if (patternIndex === pattern.length) {
             if (pattern.length === text.length) {
@@ -439,7 +439,7 @@ class ComputeEngine {
         } else {
             return 0; // no match if pattern wasn't fully found
         }
-    
+
         return score;
     }
 
@@ -448,7 +448,7 @@ class ComputeEngine {
         const count = vectors.length;
         const dim = vectors[0].length;
         const mean = new Float32Array(dim).fill(0);
-        
+
         for (const vec of vectors) {
             for (let i = 0; i < dim; i++) mean[i] += vec[i];
         }
@@ -499,7 +499,7 @@ class ComputeEngine {
         const min = Math.min(...scores);
         const max = Math.max(...scores);
         const range = max - min;
-        
+
         if (range === 0) return results.map(r => ({ ...r, distance: 0 }));
 
         return results.map(r => ({
@@ -507,6 +507,7 @@ class ComputeEngine {
             distance: (r.distance - min) / range
         }));
     }
+
 
     // --- Prediction ---
 
@@ -519,7 +520,7 @@ class ComputeEngine {
         // 1. Separate Data
         for (const [avatar, vec] of embeddingMap.entries()) {
             if (ratingsMap.has(avatar)) {
-                trainX.push(Array.from(vec)); 
+                trainX.push(Array.from(vec));
                 trainY.push(ratingsMap.get(avatar));
             } else {
                 predictX.push(Array.from(vec));
@@ -547,17 +548,17 @@ class ComputeEngine {
 
         // 3. Assemble Results
         const resultMap = new Map();
-        
+
         predMed.forEach((val, idx) => {
             // Clamp score
             let score = Math.max(0.5, Math.min(5.0, val));
-            
+
             // Calculate Interval Width (Confidence proxy)
             // Smaller width = Higher confidence
             const lower = predLow[idx];
             const upper = predHigh[idx];
             let width = Math.abs(upper - lower);
-            
+
             resultMap.set(predictAvatars[idx], { score, width });
         });
 
@@ -658,7 +659,7 @@ class ComputeEngine {
         const pathLengths = new Float32Array(n).fill(0);
         for (let t = 0; t < nTrees; t++) {
             const indices = [];
-            for(let i=0; i<n; i++) indices.push(i);
+            for (let i = 0; i < n; i++) indices.push(i);
             for (let i = indices.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [indices[i], indices[j]] = [indices[j], indices[i]];
@@ -669,10 +670,10 @@ class ComputeEngine {
                 }
                 const feature = Math.floor(Math.random() * dim);
                 let min = Infinity, max = -Infinity;
-                for(const idx of currentIndices) {
+                for (const idx of currentIndices) {
                     const val = data[idx][feature];
-                    if(val < min) min = val;
-                    if(val > max) max = val;
+                    if (val < min) min = val;
+                    if (val > max) max = val;
                 }
                 if (min === max) return;
                 const splitValue = Math.random() * (max - min) + min;
@@ -705,11 +706,11 @@ class ComputeEngine {
         const scores = new Float32Array(n).fill(0);
         for (let d = 0; d < dim; d++) {
             const column = new Float32Array(n);
-            for(let i=0; i<n; i++) column[i] = data[i][d];
+            for (let i = 0; i < n; i++) column[i] = data[i][d];
             const indices = new Int32Array(n);
-            for(let i=0; i<n; i++) indices[i] = i;
+            for (let i = 0; i < n; i++) indices[i] = i;
             indices.sort((a, b) => column[a] - column[b]);
-            for(let r=0; r<n; r++) {
+            for (let r = 0; r < n; r++) {
                 const originalIndex = indices[r];
                 const pLeft = (r + 1) / (n + 1);
                 const pRight = (n - r) / (n + 1);
@@ -735,20 +736,20 @@ class ComputeEngine {
             let min = Infinity, max = -Infinity;
             const col = new Float32Array(n);
             let sum = 0;
-            for(let i=0; i<n; i++) {
+            for (let i = 0; i < n; i++) {
                 const val = data[i][d];
                 col[i] = val;
                 sum += val;
-                if(val < min) min = val;
-                if(val > max) max = val;
+                if (val < min) min = val;
+                if (val > max) max = val;
             }
             const mean = sum / n;
             let sqDiff = 0;
-            for(let x of col) sqDiff += (x - mean) * (x - mean);
+            for (let x of col) sqDiff += (x - mean) * (x - mean);
             const std = Math.sqrt(sqDiff / n);
-            let binCount = 10; 
+            let binCount = 10;
             if (std > 0) {
-                const binWidth = (3.5 * std) / Math.pow(n, 1/3);
+                const binWidth = (3.5 * std) / Math.pow(n, 1 / 3);
                 if (binWidth > 0) {
                     binCount = Math.ceil((max - min) / binWidth);
                 }
@@ -758,7 +759,7 @@ class ComputeEngine {
             const range = max - min;
             const step = range / binCount;
             if (step > 0) {
-                for(let i=0; i<n; i++) {
+                for (let i = 0; i < n; i++) {
                     let binIdx = Math.floor((col[i] - min) / step);
                     if (binIdx >= binCount) binIdx = binCount - 1;
                     hist[binIdx]++;
@@ -766,7 +767,7 @@ class ComputeEngine {
             } else {
                 hist[0] = n;
             }
-            for(let i=0; i<n; i++) {
+            for (let i = 0; i < n; i++) {
                 let binIdx = 0;
                 if (step > 0) {
                     binIdx = Math.floor((col[i] - min) / step);
@@ -776,7 +777,7 @@ class ComputeEngine {
                 if (count > 0) {
                     scores[i] += Math.log(n / count);
                 } else {
-                    scores[i] += Math.log(n); 
+                    scores[i] += Math.log(n);
                 }
             }
         }
@@ -795,27 +796,27 @@ class ComputeEngine {
         const neighborCount = Math.max(1, Math.min(k, n - 1));
         const negativeData = [];
         const noiseScale = 0.1;
-        for(let i=0; i<n; i++) {
+        for (let i = 0; i < n; i++) {
             const noise = new Float32Array(dim);
-            for(let d=0; d<dim; d++) {
-                const g = (Math.random() + Math.random() + Math.random() - 1.5) * 2; 
+            for (let d = 0; d < dim; d++) {
+                const g = (Math.random() + Math.random() + Math.random() - 1.5) * 2;
                 noise[d] = realData[i][d] + (g * noiseScale);
             }
             negativeData.push(noise);
         }
         const getKNN = (queryPoint, isRealIndex) => {
             const dists = [];
-            for(let i=0; i<n; i++) {
-                if(isRealIndex === i) continue;
+            for (let i = 0; i < n; i++) {
+                if (isRealIndex === i) continue;
                 dists.push(this.calculateCosineDistance(queryPoint, realData[i]));
             }
-            dists.sort((a,b) => a - b);
+            dists.sort((a, b) => a - b);
             return dists.slice(0, neighborCount);
         };
         const X_real = [];
-        for(let i=0; i<n; i++) X_real.push(getKNN(realData[i], i));
+        for (let i = 0; i < n; i++) X_real.push(getKNN(realData[i], i));
         const X_neg = [];
-        for(let i=0; i<n; i++) X_neg.push(getKNN(negativeData[i], -1));
+        for (let i = 0; i < n; i++) X_neg.push(getKNN(negativeData[i], -1));
         const hiddenSize = 16;
         const learningRate = 0.1;
         const epochs = 50;
@@ -825,49 +826,49 @@ class ComputeEngine {
         let b2 = 0;
         const forward = (input) => {
             const h = new Float32Array(hiddenSize);
-            for(let i=0; i<hiddenSize; i++) {
+            for (let i = 0; i < hiddenSize; i++) {
                 let sum = b1[i];
-                for(let j=0; j<neighborCount; j++) {
-                    sum += input[j] * W1[j*hiddenSize + i];
+                for (let j = 0; j < neighborCount; j++) {
+                    sum += input[j] * W1[j * hiddenSize + i];
                 }
                 h[i] = sum > 0 ? sum : 0;
             }
             let z = b2;
-            for(let i=0; i<hiddenSize; i++) {
+            for (let i = 0; i < hiddenSize; i++) {
                 z += h[i] * W2[i];
             }
             const pred = 1 / (1 + Math.exp(-z));
             return { h, pred };
         };
-        for(let epoch=0; epoch<epochs; epoch++) {
+        for (let epoch = 0; epoch < epochs; epoch++) {
             const indices = [];
-            for(let i=0; i<n*2; i++) indices.push(i);
+            for (let i = 0; i < n * 2; i++) indices.push(i);
             indices.sort(() => Math.random() - 0.5);
-            for(const idx of indices) {
+            for (const idx of indices) {
                 const isReal = idx < n;
                 const features = isReal ? X_real[idx] : X_neg[idx - n];
                 const target = isReal ? 0 : 1;
                 const { h, pred } = forward(features);
                 const error = pred - target;
                 const gradOut = error * (pred * (1 - pred));
-                for(let i=0; i<hiddenSize; i++) {
+                for (let i = 0; i < hiddenSize; i++) {
                     const grad = gradOut * h[i];
                     W2[i] -= learningRate * grad;
                 }
                 b2 -= learningRate * gradOut;
-                for(let i=0; i<hiddenSize; i++) {
+                for (let i = 0; i < hiddenSize; i++) {
                     const gradH = gradOut * W2[i];
                     const gradReLU = h[i] > 0 ? 1 : 0;
                     const gradLayer1 = gradH * gradReLU;
                     b1[i] -= learningRate * gradLayer1;
-                    for(let j=0; j<neighborCount; j++) {
-                        W1[j*hiddenSize + i] -= learningRate * gradLayer1 * features[j];
+                    for (let j = 0; j < neighborCount; j++) {
+                        W1[j * hiddenSize + i] -= learningRate * gradLayer1 * features[j];
                     }
                 }
             }
         }
         const results = [];
-        for(let i=0; i<n; i++) {
+        for (let i = 0; i < n; i++) {
             const { pred } = forward(X_real[i]);
             results.push({ avatar: entries[i][0], distance: pred });
         }
@@ -1015,9 +1016,9 @@ class UIManager {
                 </div>
             </div>
         </div>`;
-        
+
         $('#movingDivs').append(panelTemplate);
-        
+
         // Open Button Injection
         const openBtn = $(`<div id="charSimOpenBtn" class="menu_button fa-solid fa-project-diagram faSmallFontSquareFix" title="Character Analysis"></div>`);
         const btnContainer = $('#rm_buttons_container');
@@ -1091,27 +1092,27 @@ class UIManager {
 
         // Details View Navigation (Delegated listener for Grid & Similar list)
         $('#characterSimilarityPanel').on('click', '.charSim-grid-card', (e) => {
-             const actualAvatar = $(e.currentTarget).data('avatar');
-             this.showCharacterDetails(actualAvatar);
+            const actualAvatar = $(e.currentTarget).data('avatar');
+            this.showCharacterDetails(actualAvatar);
         });
 
         $('#charSimBtn_back').on('click', () => {
-             $('#charSimView_details').removeClass('active');
-             $('#charSimView_characters').addClass('active');
+            $('#charSimView_details').removeClass('active');
+            $('#charSimView_characters').addClass('active');
         });
 
         // Details Toggle
-        $('#characterSimilarityPanel').on('click', '.charSim-details-toggle', function() {
-             const content = $('.charSim-details-advanced');
-             const icon = $(this).find('i');
-             
-             if (content.is(':visible')) {
-                 content.slideUp();
-                 icon.removeClass('fa-eye').addClass('fa-eye-slash');
-             } else {
-                 content.slideDown();
-                 icon.removeClass('fa-eye-slash').addClass('fa-eye');
-             }
+        $('#characterSimilarityPanel').on('click', '.charSim-details-toggle', function () {
+            const content = $('.charSim-details-advanced');
+            const icon = $(this).find('i');
+
+            if (content.is(':visible')) {
+                content.slideUp();
+                icon.removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                content.slideDown();
+                icon.removeClass('fa-eye-slash').addClass('fa-eye');
+            }
         });
 
         // Rating Star Interactions (Delegated)
@@ -1120,12 +1121,12 @@ class UIManager {
             const width = container.width() / 5;
             const offset = container.offset();
             const x = e.pageX - offset.left;
-            
+
             const starIndex = Math.floor(x / width);
             const relativeX = x % width;
             let value = starIndex + (relativeX < width / 2 ? 0.5 : 1.0);
-            if(value > 5) value = 5;
-            if(value < 0.5) value = 0.5;
+            if (value > 5) value = 5;
+            if (value < 0.5) value = 0.5;
             this.renderStars(container, value);
         });
 
@@ -1135,12 +1136,12 @@ class UIManager {
             // Check for manual, then predicted
             let value = this.ext.getRating(avatar);
             let isPredicted = false;
-            
+
             if (value === 0 && this.ext.predictedRatings.has(avatar)) {
                 value = this.ext.predictedRatings.get(avatar).score;
                 isPredicted = true;
             }
-            
+
             this.renderStars(container, value, isPredicted);
         });
 
@@ -1153,13 +1154,13 @@ class UIManager {
             const starIndex = Math.floor(x / width);
             const relativeX = x % width;
             let value = starIndex + (relativeX < width / 2 ? 0.5 : 1.0);
-            if(value > 5) value = 5;
-            if(value < 0.5) value = 0.5;
-            
+            if (value > 5) value = 5;
+            if (value < 0.5) value = 0.5;
+
             const avatar = container.data('avatar');
             this.ext.setRating(avatar, value);
             this.renderStars(container, value, false); // Becomes manual
-            
+
             // Show reset button
             $('#charSimRatingReset').show();
             // Refresh list to update grid star view
@@ -1170,7 +1171,7 @@ class UIManager {
         $('#characterSimilarityPanel').on('click', '#charSimRatingReset', (e) => {
             const avatar = $(e.currentTarget).data('avatar');
             this.ext.setRating(avatar, null); // Clear manual rating
-            
+
             // Re-render based on potential prediction
             let value = 0;
             let isPredicted = false;
@@ -1178,7 +1179,7 @@ class UIManager {
                 value = this.ext.predictedRatings.get(avatar).score;
                 isPredicted = true;
             }
-            
+
             this.renderStars($('.charSim-rating-container'), value, isPredicted);
             $(e.currentTarget).hide();
             // Refresh list to update grid star view
@@ -1194,11 +1195,10 @@ class UIManager {
         });
     }
 
-
     toggleParamInput(method) {
         const show = ['isolation', 'lof', 'knn', 'lunar'].includes(method);
         $('#charSim_param_container').css('display', show ? 'flex' : 'none');
-        
+
         let label = "N:";
         if (method === 'isolation') label = "Trees:";
         if (method === 'lof' || method === 'knn' || method === 'lunar') label = "k:";
@@ -1234,7 +1234,7 @@ class UIManager {
         const html = charList.map(c => {
             const rating = c.rating || 0;
             const isPredicted = c.isPredicted;
-            
+
             // Create mini star HTML string
             let starHtml = '';
             for (let i = 0; i < 5; i++) {
@@ -1242,14 +1242,14 @@ class UIManager {
                 const color = isPredicted ? '#89CFF0' : '#ffd700';
                 const emptyColor = '#4a4a4a';
                 let style = `color: ${emptyColor};`;
-                
+
                 if (diff >= 1) {
                     style = `color: ${color};`;
                 } else if (diff > 0) {
                     const percent = diff * 100;
                     style = `background: linear-gradient(90deg, ${color} ${percent}%, ${emptyColor} ${percent}%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: none; -webkit-text-stroke: 0;`;
                 }
-                
+
                 starHtml += `<i class="fa-solid fa-star" style="${style}"></i>`;
             }
 
@@ -1262,32 +1262,37 @@ class UIManager {
                 <div class="charSim-grid-stars">${starHtml}</div>
             </div>`;
         }).join('');
-        
+
         container.html(html);
     }
 
     showCharacterDetails(avatar) {
         const char = characters.find(c => c.avatar === avatar);
         if (!char) return;
-        
+
         const charIndex = characters.indexOf(char);
 
         const container = $('.charSim-details-content');
-        
+
         const creatorNotes = char.creatorcomment || "No creator notes available.";
         const desc = char.description || "";
         const personality = char.personality || "";
         const scenario = char.scenario || "";
         const firstMes = char.first_mes || "";
         const mesEx = char.mes_example || "";
-        
+
         let currentRating = this.ext.getRating(avatar);
         let isPredicted = false;
         let showReset = currentRating !== 0;
+        let predLower = 0;
+        let predUpper = 0;
 
         // If no manual rating, check for prediction
         if (currentRating === 0 && this.ext.predictedRatings.has(avatar)) {
-            currentRating = this.ext.predictedRatings.get(avatar).score;
+            const p = this.ext.predictedRatings.get(avatar);
+            currentRating = p.score;
+            predLower = p.lower;
+            predUpper = p.upper;
             isPredicted = true;
         }
 
@@ -1348,9 +1353,9 @@ class UIManager {
         `;
 
         container.html(html);
-        
+
         // Initial star render
-        this.renderStars($('.charSim-rating-container'), currentRating, isPredicted);
+        this.renderStars($('.charSim-rating-container'), currentRating, isPredicted, predLower, predUpper);
 
         // Initial load of similar items
         this.loadNextSimilarBatch();
@@ -1363,44 +1368,51 @@ class UIManager {
                 this.loadNextSimilarBatch();
             }
         });
-        
+
         $('.charSim-view').removeClass('active');
         $('#charSimView_details').addClass('active');
     }
 
-    renderStars(container, value, isPredicted = false) {
+    renderStars(container, value, isPredicted = false, lower = null, upper = null) {
+        // Defaults if not provided (e.g. mouse interaction usually implies scalar value)
+        if (lower === null || lower === undefined) lower = value;
+        if (upper === null || upper === undefined) upper = value;
+
         const stars = container.find('i');
-        const color = isPredicted ? '#89CFF0' : '#ffd700'; // Light Blue vs Gold
-        const emptyColor = '#4a4a4a'; // Darker grey for empty part, looks better on dark BG
+        const colorSolid = isPredicted ? '#007bff' : '#ffd700';
+        const colorFaded = isPredicted ? '#89CFF0' : '#ffd700';
+        const colorEmpty = '#4a4a4a';
 
         stars.each((index, el) => {
             const star = $(el);
-            // Ensure base solid class is present (reset any specific gradient style)
-            star.removeAttr('style'); 
-            
-            const diff = value - index;
-            
-            if (diff >= 1) {
-                // Full star
-                star.css('color', color);
-            } else if (diff > 0) {
-                // Partial star
-                const percent = diff * 100;
+            star.removeAttr('style');
+
+            // Calculate percentages for this specific star (0 to 100)
+            const valSolid = Math.max(0, Math.min(1, lower - index));
+            const p1 = valSolid * 100;
+
+            const valFadedEnd = Math.max(0, Math.min(1, upper - index));
+            const p2 = valFadedEnd * 100;
+
+            if (p1 >= 100) {
+                star.css('color', colorSolid);
+            } else if (p2 <= 0) {
+                star.css('color', colorEmpty);
+            } else {
                 star.css({
-                    'background': `linear-gradient(90deg, ${color} ${percent}%, ${emptyColor} ${percent}%)`,
+                    'background': `linear-gradient(90deg, 
+                        ${colorSolid} 0%, ${colorSolid} ${p1}%, 
+                        ${colorFaded} ${p1}%, ${colorFaded} ${p2}%, 
+                        ${colorEmpty} ${p2}%, ${colorEmpty} 100%)`,
                     '-webkit-background-clip': 'text',
                     '-webkit-text-fill-color': 'transparent',
-                    'color': 'transparent', // Fallback/Ensures fill color takes precedence
-                    'text-shadow': 'none', // Critical fix for grey artifacts
-                    '-webkit-text-stroke': '0' // Critical fix for grey artifacts
+                    'color': 'transparent',
+                    'text-shadow': 'none',
+                    '-webkit-text-stroke': '0'
                 });
-            } else {
-                // Empty star
-                star.css('color', emptyColor);
             }
         });
-        
-        // Remove old class based styling if present, logic handled inline now for precision
+
         container.toggleClass('charSim-rating-predicted', isPredicted);
     }
 
@@ -1447,12 +1459,12 @@ class CharacterSimilarityExtension {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, extension_settings[EXTENSION_NAME] || {});
         extension_settings[EXTENSION_NAME] = this.settings;
 
-        this.dataItems = []; 
-        this.validCaches = []; 
+        this.dataItems = [];
+        this.validCaches = [];
         this.uniquenessData = [];
         this.predictedRatings = new Map(); // Store predicted ratings here
         this.isProcessing = false;
-        
+
         this.service = new SimilarityService(this.settings);
         this.ui = new UIManager(this);
     }
@@ -1484,32 +1496,32 @@ class CharacterSimilarityExtension {
 
     async performSearch() {
         const term = $('#charSimInput_filter').val().trim();
-    
+
         if (!term) {
             this.populateLists(); // Resets to default view
             return;
         }
-    
+
         toastr.info(`Searching for "${term}"...`);
-    
+
         try {
             const liveEmbeddings = this.service.getLiveEmbeddings();
             const useEmbeddings = liveEmbeddings.size > 0;
             let termVector = null;
-    
+
             if (useEmbeddings) {
                 termVector = await this.service.getEmbeddingForText(term);
             } else {
                 toastr.warning("Live embedding cache is not ready. Falling back to name-only search.");
             }
-    
+
             let scoredChars = [];
             let maxFuzzyScore = 1; // avoid division by zero
-    
+
             for (const char of characters) {
                 const fuzzyScore = ComputeEngine.fuzzyMatch(term, char.name);
                 if (fuzzyScore > maxFuzzyScore) maxFuzzyScore = fuzzyScore;
-    
+
                 let embeddingScore = 0;
                 if (useEmbeddings && termVector) {
                     const charVector = liveEmbeddings.get(char.avatar);
@@ -1517,18 +1529,18 @@ class CharacterSimilarityExtension {
                         embeddingScore = ComputeEngine.calculateCosineSimilarity(termVector, charVector);
                     }
                 }
-                
+
                 scoredChars.push({ char, fuzzyScore, embeddingScore });
             }
-            
+
             const finalResults = scoredChars.map(item => {
                 const normalizedFuzzy = item.fuzzyScore / maxFuzzyScore;
                 const normalizedEmbedding = useEmbeddings ? (item.embeddingScore + 1) / 2 : 0;
-                
+
                 const combinedScore = useEmbeddings
                     ? (0.3 * normalizedFuzzy) + (0.7 * normalizedEmbedding)
                     : normalizedFuzzy; // Only fuzzy if no embeddings
-                
+
                 // Add required properties for rendering
                 let rating = this.getRating(item.char.avatar);
                 let isPredicted = false;
@@ -1537,7 +1549,7 @@ class CharacterSimilarityExtension {
                     rating = p.score;
                     isPredicted = true;
                 }
-                
+
                 return {
                     ...item.char,
                     combinedScore,
@@ -1545,12 +1557,12 @@ class CharacterSimilarityExtension {
                     isPredicted
                 };
             });
-    
+
             finalResults.sort((a, b) => b.combinedScore - a.combinedScore);
-            
+
             this.ui.renderCharacterGrid(finalResults);
             toastr.success(`Search complete.`);
-    
+
         } catch (err) {
             toastr.error(`Search failed: ${err.message}`);
             console.error(err);
@@ -1579,7 +1591,7 @@ class CharacterSimilarityExtension {
             // Uniqueness
             const uItem = this.uniquenessData.find(u => u.avatar === c.avatar);
             const score = uItem ? uItem.distance : 0;
-            
+
             // Rating (Manual or Predicted)
             let rating = this.getRating(c.avatar);
             let isPredicted = false;
@@ -1589,6 +1601,8 @@ class CharacterSimilarityExtension {
                 const p = this.predictedRatings.get(c.avatar);
                 rating = p.score;
                 confidenceWidth = p.width;
+                predLower = p.lower;
+                predUpper = p.upper;
                 isPredicted = true;
             }
 
@@ -1602,6 +1616,8 @@ class CharacterSimilarityExtension {
                 rating: rating,
                 isPredicted: isPredicted,
                 confidenceWidth: confidenceWidth,
+                predLower: predLower,
+                predUpper: predUpper,
                 tokenCount: tokenProxy
             };
         });
@@ -1632,16 +1648,16 @@ class CharacterSimilarityExtension {
 
     populateLists() {
         if (this.uniquenessData.length === 0) {
-            const simpleList = characters.map(c => ({ 
-                avatar: c.avatar, 
-                name: c.name, 
-                distance: 0 
+            const simpleList = characters.map(c => ({
+                avatar: c.avatar,
+                name: c.name,
+                distance: 0
             }));
             this.ui.renderUniquenessList(simpleList, true);
         } else {
             this.ui.renderUniquenessList(this.uniquenessData, $('#charSimBtn_sort').hasClass('fa-arrow-down'));
         }
-        
+
         // Render characters with current sort state
         const sortedChars = this.getSortedCharacters();
         this.ui.renderCharacterGrid(sortedChars);
@@ -1650,7 +1666,7 @@ class CharacterSimilarityExtension {
     async onOpenPanel() {
         $('#characterSimilarityPanel').addClass('open');
         this.populateLists();
-        
+
         if (!this.isProcessing) {
             await this.refreshAnalysis();
         }
@@ -1660,9 +1676,9 @@ class CharacterSimilarityExtension {
         this.isProcessing = true;
         try {
             const texts = [];
-            for(const char of characters) {
+            for (const char of characters) {
                 const text = FIELDS_TO_EMBED.map(f => char[f] || '').join('\n').trim();
-                if(text) {
+                if (text) {
                     const hash = await hashText(text);
                     texts.push({ avatar: char.avatar, text, hash });
                 }
@@ -1675,10 +1691,10 @@ class CharacterSimilarityExtension {
 
             this.validCaches = this.service.getValidCaches(this.dataItems);
 
-            if(this.validCaches.length === 0) {
+            if (this.validCaches.length === 0) {
                 throw new Error("No valid embedding caches available.");
             }
-            
+
             this.runUniqueness();
             this.updatePredictions();
 
@@ -1696,15 +1712,15 @@ class CharacterSimilarityExtension {
 
     runUniqueness() {
         if (this.validCaches.length === 0) return;
-        
+
         setTimeout(() => {
             try {
                 const method = this.settings.uniquenessMethod;
                 const n = this.settings.uniquenessN || 20;
-                
-                const compositeScores = new Map(); 
-                
-                for(const cacheObj of this.validCaches) {
+
+                const compositeScores = new Map();
+
+                for (const cacheObj of this.validCaches) {
                     const embeddingMap = cacheObj.map;
                     let rawResults = [];
 
@@ -1737,8 +1753,8 @@ class CharacterSimilarityExtension {
                     }
 
                     const normalized = ComputeEngine.normalizeScores(rawResults);
-                    
-                    for(const item of normalized) {
+
+                    for (const item of normalized) {
                         const prev = compositeScores.get(item.avatar) || 0;
                         compositeScores.set(item.avatar, prev + item.distance);
                     }
@@ -1746,10 +1762,10 @@ class CharacterSimilarityExtension {
 
                 const finalResults = [];
                 const modelCount = this.validCaches.length;
-                
-                for(const [avatar, total] of compositeScores.entries()) {
+
+                for (const [avatar, total] of compositeScores.entries()) {
                     const char = characters.find(c => c.avatar === avatar);
-                    if(char) {
+                    if (char) {
                         finalResults.push({
                             avatar,
                             name: char.name,
@@ -1761,7 +1777,7 @@ class CharacterSimilarityExtension {
                 this.uniquenessData = finalResults;
                 this.ui.renderUniquenessList(this.uniquenessData, $('#charSimBtn_sort').hasClass('fa-arrow-down'));
                 this.populateLists(); // Trigger re-sort of char list to update counts if needed
-                
+
                 toastr.success(`Calculated using ${modelCount} model(s).`);
 
             } catch (e) {
@@ -1774,11 +1790,11 @@ class CharacterSimilarityExtension {
     updatePredictions() {
         setTimeout(() => {
             const embeddingMap = this.service.getLiveEmbeddings();
-            if(embeddingMap.size === 0) return;
+            if (embeddingMap.size === 0) return;
 
             const ratingsMap = new Map();
-            if(extension_settings[RATINGS_KEY]) {
-                for(const key in extension_settings[RATINGS_KEY]) {
+            if (extension_settings[RATINGS_KEY]) {
+                for (const key in extension_settings[RATINGS_KEY]) {
                     ratingsMap.set(key, extension_settings[RATINGS_KEY][key]);
                 }
             }
@@ -1790,7 +1806,7 @@ class CharacterSimilarityExtension {
 
     getSimilarCharacters(targetAvatar) {
         if (this.validCaches.length === 0) return [];
-        
+
         const compositeSimilarities = new Map();
 
         for (const cacheObj of this.validCaches) {
